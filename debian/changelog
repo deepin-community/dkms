@@ -1,0 +1,5 @@
+dkms (2.8.7-deepin) stable; urgency=medium
+
+  * ['Rebuild  against by  current gcc 11.2']
+
+ -- Deepin Packages Builder <packages@deepin.org>  Thu, 11 Aug 2022 23:33:41 +0800
