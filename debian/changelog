@@ -1,3 +1,9 @@
+dkms (3.0.10-6deepin) unstable; urgency=medium
+
+  * Non-maintainer upload.
+
+ -- LiChengGang <lichenggang@uniontech.com>  Fri, 10 Mar 2023 11:10:07 +0800
+
 dkms (3.0.10-6) unstable; urgency=medium
 
   * Fix test failure on s390x due to typo in "linux" package installation
