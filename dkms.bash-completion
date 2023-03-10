@@ -30,7 +30,7 @@ _dkms()
 
 	if [[ $COMP_CWORD -eq 1 ]] ; then
 		COMPREPLY=( $( compgen -W "add autoinstall remove build unbuild install uninstall \
-			match mkdriverdisk mktarball ldtarball mkrpm mkdeb mkdsc mkkmp \
+			match mktarball ldtarball \
 			status" -- $cur ) )
 	else
 
@@ -85,10 +85,10 @@ _dkms()
 					options='--rpm_safe_upgrade'
 					;;
 				build)
-					options='--config'
+					options='--config --force'
 					;;
-				mkdriverdisk)
-					options='-d --distro -r --release --size'
+				install)
+					options='--force'
 					;;
 				ldtarball)
 					options='--archive --force'
@@ -96,20 +96,13 @@ _dkms()
 				mktarball)
 					options='--source-only --binaries-only'
 					;;
-				mkrpm)
-					options='--source-only'
-					;;
-				mkkmp)
-					options='--spec'
-					;;
 				match)
 					options='--templatekernel'
 					;;
 			esac
 
 			options="$options -m -v -k -a --arch -q --quiet -V \
-				--version --all --no-prepare-kernel \
-				--no-clean-kernel --kernelsourcedir \
+				--version --all --kernelsourcedir \
 				--directive"
 
 			COMPREPLY=( $( compgen -W "$options" -- $cur ) )

@@ -1,0 +1,7 @@
+Test-Command: sh debian/tests/run_test_wrapper.sh
+Depends: @, bash, openssl,
+  linux-headers-amd64 [amd64],
+  linux-headers-arm64 [arm64],
+  linux-headers-s390x [s390x]
+Restrictions: allow-stderr, needs-root
+Architecture: amd64 arm64 s390x
