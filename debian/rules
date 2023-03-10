@@ -6,6 +6,9 @@ include /usr/share/dpkg/pkg-info.mk
 %:
 	dh $@
 
+debian/scripts/dh_dkms: debian/scripts/dh_dkms.in
+	sed -r "s,^#VERSION#,our \$$VERSION = \"$(DEB_VERSION)\";," $< > $@
+
 dh_dkms.1: debian/scripts/dh_dkms
 	pod2man \
 		--center "DKMS Debhelper" \
@@ -16,14 +19,7 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 
+override_dh_install: debian/scripts/dh_dkms
 override_dh_install:
 	$(MAKE) install-debian DESTDIR=$(CURDIR)/debian/dkms
 	dh_install
-
-override_dh_gencontrol:
-ifeq ($(shell dpkg-vendor --derives-from Ubuntu && echo yes),yes)
-	dh_gencontrol -- \
-		-Vdkms:Breaks="shim-signed (<< 1.34~)"
-else
-	dh_gencontrol
-endif

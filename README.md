@@ -1,71 +1,30 @@
 Dynamic Kernel Module System (DKMS)
 ==
-This intention of this README is to explain how a DKMS enabled module RPM
-functions and also how DKMS can be used in conjunction with tarballs which
-contain a dkms.conf file within them.
+This intention of this README is to explain how DKMS can be used in conjunction
+with tarballs which contain a dkms.conf file within them.
 
 The DKMS project (and any updates) can be found at: https://github.com/dell/dkms
 
-How To Build RPM & DEB Package
+Installation
 --
 
-If you want to create rpm or deb package, then you can install the dkms package
-in your system.
-
-1. Install all the build dependency packages
-2. Run: `make rpm` to create rpm package
-3. Run: `make debs` to create deb package
-4. You can find the built package in `dkms/dist/`
-
-
-Installation of DKMS via RPM
---
-
-To install DKMS itself, you simply install (or upgrade) it like any
-other RPM:
+Installation is performed from the source directory with one of the following
+commands:
 
 ```
-# rpm -ivh dkms-<version>-<release>.noarch.rpm
+make install
+make install-debian
+make install-redhat
 ```
 
-This is a prerequisite to installing DKMS-enabled module RPMs.
-
-
-Installation via RPM
---
-
-To install a DKMS enabled module RPM, you simply install it like any other RPM:
-
-```
-# rpm -ivh <module>-<version>-<rpmversion>.noarch.rpm
-```
-
-With a DKMS enabled module RPM, most of the installation work done by the RPM
-is actually handed off to DKMS within the RPM. Generally it does the following:
-
-1. Installs module source into `/usr/src/<module>-<moduleversion>/`
-2. Places a dkms.conf file into `/usr/src/<module>-<moduleversion>/`
-3. Runs: `# dkms add -m <module> -v <version>`
-4. Runs: `# dkms build -m <module> -v <version>`
-5. Runs: `# dkms install -m <module> -v <version>`
-
-Once the RPM installation is complete, you can use DKMS to understand which
-module and which moduleversion is installed on which kernels.  This can be
-accomplished via the command:
-
-```
-# dkms status
-```
-
-From here, you can then use the various DKMS commands (e.g. add, build, install,
-uninstall) to load that module onto other kernels.
+Distribution specific installations (RPM, DEB, etc.) are not contained in this
+source repository.
 
 
 Installation via DKMS Tarballs
 --
 
-DKMS is not limited to installation via RPM only.  In fact, DKMS can also
-install directly from the following:
+DKMS can install directly from the following:
 
 1. Generic module source tarballs which contain a dkms.conf file
 2. Specially created DKMS tarballs with module source, pre-built module
@@ -130,29 +89,47 @@ use `dkms install` to install any of the pre-built modules.
 Of course, since module source will not be located in your dkms tree, you will
 not be able to build any modules with DKMS for this package.
 
-
-Further Documentation
---
-
-Once DKMS is installed, you can reference its man page for further information
-on different DKMS options and also to understand the formatting of a module's
-dkms.conf configuration file.
-
-You may also wish to join the dkms-devel public mailing-list at
-http://lists.us.dell.com/.
-
-The DKMS project is located at: https://github.com/dell/dkms
-
-
 Module signing
 --
 
-On an UEFI system with Secure Boot enabled, modules require signing before they
-can be loaded. First of all make sure the commands `openssl` and `mokutil` are
-installed.
+By default, DKMS generates a self signed certificate for signing modules at
+build time and signs every module that it builds before it gets compressed in
+the configured kernel compression mechanism of choice.
 
-For further customizations (scripts, certificates, etc.) please refer to the
-manual page (`dkms(8)`).
+This requires the `openssl` command to be present on the system.
+
+Private key and certificate are auto generated the first time DKMS is run and
+placed in `/var/lib/dkms`. These certificate files can be prepulated with your
+own certificates of choice.
+
+The location as well can be changed by setting the appropriate variables in
+`/etc/dkms/framework.conf`. For example, to awllow usage of the system default
+Debian and Ubuntu `update-secureboot-policy` set the configuration file as
+follows:
+```
+mok_signing_key="/var/lib/shim-signed/mok/MOK.der"
+mok_certificate="/var/lib/shim-signed/mok/MOK.priv"
+```
+
+The paths specified in `mok_signing_key`, `mok_certificate` and `sign_file` can
+use the variable `${kernelver}` to represent the target kernel version. 
+```
+sign_file="/lib/modules/${kernelver}/build/scripts/sign-file"
+```
+
+The variable `mok_signing_key` can also be a `pkcs11:...` string for a [PKCS#11
+engine](https://www.rfc-editor.org/rfc/rfc7512), as long as the `sign_file`
+program supports it.
+
+Secure Boot
+--
+
+On an UEFI system with Secure Boot enabled, modules require signing (as
+described in the above paragraph) before they can be loaded and the firmware of
+the system must know the correct public certificate to verify the module
+signature.
+
+For importing the MOK certificate make sure `mokutil` is installed.
 
 To check if Secure Boot is enabled:
 
@@ -161,54 +138,59 @@ To check if Secure Boot is enabled:
 SecureBoot enabled
 ```
 
-To proceed with Signing with the standard settings, proceed as follows.
-
-First uncomment the `sign_tool` line in `/etc/dkms/framework.conf`, this allow
-using the script declared in that variable as a hook during the module build
-process for signing modules:
+With the appropriate key material on the system, enroll the public key:
 
 ```
-sign_tool="/etc/dkms/sign_helper.sh"
-```
-
-The script by defaults expects a private key and a matching certificate in the
-`root` home folder. To generate the key and the self signed certificate:
-
-```
-# openssl req -new -x509 -nodes -days 36500 -subj "/CN=DKMS modules" \
-    -newkey rsa:2048 -keyout /root/dkms.key \
-    -outform DER -out /root/dkms.der
-```
-
-After generating the key, enroll the public key:
-
-```
-# mokutil --import /root/dkms.der
+# mokutil --import /var/lib/dkms/mok.pub"
 ```
 
 You'll be prompted to create a password. Enter it twice, it can also be blank.
 
-Reboot the computer. At boot you'll see the MOK Manager EFI interface, press any
-key to enter it.
+Reboot the computer. At boot you'll see the MOK Manager EFI interface:
 
-- "Enroll MOK"
-- "Continue".
-- "Yes".
-- Enter the password you set up just now.
-- Select "OK" and the computer will reboot again.
+![SHIM UEFI key management](/images/mok-key-1.png)
+
+Press any key to enter it, then select "Enroll MOK":
+
+![Perform MOK management](/images/mok-key-2.png)
+
+Then select "Continue":
+
+![Enroll MOK](/images/mok-key-3.png)
+
+And confirm with "Yes" when prompted:
+
+![Enroll the key(s)?](/images/mok-key-4.png)
+
+After this, enter the password you set up with `mokutil --import` in the previous step:
+
+![Enroll the key(s)?](/images/mok-key-5.png)
+
+At this point you are done, select "OK" and the computer will reboot trusting the key for your modules:
+
+![Perform MOK management](/images/mok-key-6.png)
 
 After reboot, you can inspect the MOK certificates with the following command:
 
 ```
 # mokutil --list-enrolled | grep DKMS
-        Subject: CN=DKMS modules
+        Subject: CN=DKMS module signing key
 ```
 
 To check the signature on a built DKMS module that is installed on a system:
 
 ```
 # modinfo dkms_test | grep ^signer
-signer:         DKMS modules
+signer:         DKMS module signing key
 ```
 
-The module should be able to be loaded without issues.
+The module can now be loaded without issues.
+
+Further Documentation
+--
+
+Once DKMS is installed, you can reference its man page for further information
+on different DKMS options and also to understand the formatting of a module's
+dkms.conf configuration file.
+
+The DKMS project is located at: https://github.com/dell/dkms
