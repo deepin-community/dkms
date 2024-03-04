@@ -1,0 +1,22 @@
+--- a/kernel_postinst.d_dkms.in
++++ b/kernel_postinst.d_dkms.in
+@@ -34,6 +34,19 @@ case "${uname_s}" in
+     ;;
+ esac
+ 
++case $0 in *header_postinst.d*)
++    # unbuild all autoinstalled modules for this kernel to ensure they get
++    # rebuilt against the updated headers by the next autoinstall below
++    for mod_ver in $(dkms status -k "$inst_kern" 2>/dev/null | grep ': installed' | cut -d, -f1 | sort -u)
++    do
++        dkms_conf="/var/lib/dkms/$mod_ver/source/dkms.conf"
++        autoinstall=$(bash -c 'AUTOINSTALL=; . "'"$dkms_conf"'" >/dev/null 2>&1; echo $AUTOINSTALL')
++        test -n "$autoinstall" || continue
++        dkms unbuild -k "$inst_kern" "$mod_ver"
++    done
++    ;;
++esac
++
+ if [ -x @LIBDIR@/dkms_autoinstaller ]; then
+     exec @LIBDIR@/dkms_autoinstaller start "$inst_kern"
+ fi

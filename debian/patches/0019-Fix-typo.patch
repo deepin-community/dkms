@@ -1,0 +1,25 @@
+From ce6469b65c9fa9c5826444b550397a3821ede139 Mon Sep 17 00:00:00 2001
+From: Simone Caronni <negativo17@gmail.com>
+Date: Mon, 4 Dec 2023 20:57:14 +0100
+Subject: [PATCH 19/19] Fix typo
+
+---
+ dkms.8.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/dkms.8.in b/dkms.8.in
+index 4908964..a954d4f 100644
+--- a/dkms.8.in
++++ b/dkms.8.in
+@@ -321,7 +321,7 @@ This option can be used in conjunction with
+ .B build, install 
+ and 
+ .B ldtarball
+-to force copying over of extant files.
++to force copying over existing files.
+ .TP
+ .B \-\-force\-version\-override
+ This option skips the checks whether the version of the module, which is
+-- 
+2.20.1
+

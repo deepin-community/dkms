@@ -1,0 +1,64 @@
+From 643522285118974e23e3ce1236c9a5c670f53060 Mon Sep 17 00:00:00 2001
+From: Emil Velikov <emil.velikov@collabora.com>
+Date: Wed, 29 Nov 2023 13:42:54 +0000
+Subject: [PATCH 14/19] Document that both MOK files must exist
+
+... or dkms will overwrite them both.
+
+In the future we might consider changing this to an error if only one of
+the two is available, but for now document the current behaviour.
+
+Closes: https://github.com/dell/dkms/issues/366
+Signed-off-by: Emil Velikov <emil.velikov@collabora.com>
+---
+ README.md           | 2 ++
+ dkms.8.in           | 4 ++++
+ dkms_framework.conf | 4 ++++
+ 3 files changed, 10 insertions(+)
+
+diff --git a/README.md b/README.md
+index e112824..65c1d15 100644
+--- a/README.md
++++ b/README.md
+@@ -109,6 +109,8 @@ Ubuntu `update-secureboot-policy` set the configuration file as follows:
+ mok_signing_key="/var/lib/shim-signed/mok/MOK.priv"
+ mok_certificate="/var/lib/shim-signed/mok/MOK.der"
+ ```
++NOTE: If any of the files specified by `mok_signing_key` and
++`mok_certificate` are non-existant, dkms will re-create both files.
+ 
+ The paths specified in `mok_signing_key`, `mok_certificate` and `sign_file` can
+ use the variable `${kernelver}` to represent the target kernel version.
+diff --git a/dkms.8.in b/dkms.8.in
+index a228f8c..ad34b4b 100644
+--- a/dkms.8.in
++++ b/dkms.8.in
+@@ -787,6 +787,10 @@ can be used in path to represent the target kernel version. The path for the bin
+ Location of the key and certificate files used for Secure boot. The variable
+ .B $kernelver
+ can be used in path to represent the target kernel version.
++
++NOTE: If any of the files specified by $mok_signing_key and
++$mok_certificate are non-existant, dkms will re-create both files.
++
+ .I mok_signing_key
+ can also be a "pkcs11:..." string for PKCS#11 engine, as long as the sign_file program supports it.
+ .TP
+diff --git a/dkms_framework.conf b/dkms_framework.conf
+index db487c0..6ad6dd2 100644
+--- a/dkms_framework.conf
++++ b/dkms_framework.conf
+@@ -31,6 +31,10 @@
+ 
+ # Location of the key and certificate files used for Secure boot. $kernelver
+ # can be used in path to represent the target kernel version.
++#
++# NOTE: If any of the files specified by `mok_signing_key` and
++# `mok_certificate` are non-existant, dkms will re-create both files.
++#
+ # mok_signing_key can also be a "pkcs11:..." string for PKCS#11 engine, as
+ # long as the sign_file program supports it.
+ # (default: /var/lib/dkms):
+-- 
+2.20.1
+

@@ -91,6 +91,14 @@ run_pkg() {
 
     dkms_pkg=$(bash -c ". $dkms_conf > /dev/null; echo \$PACKAGE_NAME" 2>/dev/null)
     dkms_ver=$(bash -c ". $dkms_conf > /dev/null; echo \$PACKAGE_VERSION" 2>/dev/null)
+    build_depends=$(bash -c ". $dkms_conf > /dev/null; echo \$BUILD_DEPENDS" 2>/dev/null)
+    versioned_build_depends=
+
+    for bd in $build_depends
+    do
+        bdpath=$(ls -d /usr/src/${bd}-*)
+        versioned_build_depends="$versioned_build_depends ${bd}/${bdpath#/usr/src/${bd}-}"
+    done
 
     for k in $(ls -dv /lib/modules/*/build)
     do
@@ -115,13 +123,19 @@ run_pkg() {
                 esac
         esac
 
+        for bdv in $versioned_build_depends
+        do
+            echo "I: Trying to install build dependency $bdv for $kver"
+            dkms install "$bdv" -k "$kver" || test $? = 77
+        done
+
         echo "I: Trying to build $dkms_pkg/$dkms_ver for $kver"
         res=0
         dkms build -m "$dkms_pkg" -v "$dkms_ver" -k "$kver" || res=$?
 
-        if [ "$res" = 9 ]; then
+        if [ "$res" = 77 ]; then
             echo "I: $dkms_pkg/$dkms_ver is not supported on $kver (BUILD_EXCLUSIVE directive), skipping."
-            summary="${summary}I: SKIP $kver${crlf}"
+            summary="${summary}I: SKIP $dkms_pkg/$dkms_ver $kver${crlf}"
             continue
         fi
 
@@ -131,14 +145,14 @@ run_pkg() {
             echo "========== $makelog ==========" >&2
             cat "$makelog" >&2 || true
             echo "====================" >&2
-            summary="${summary}I: FAIL $kver${crlf}"
+            summary="${summary}I: FAIL $dkms_pkg/$dkms_ver $kver${crlf}"
             result=1
             continue
         fi
 
         if ! dkms install --force -m "$dkms_pkg" -v "$dkms_ver" -k "$kver" ; then
             echo "E: $dkms_pkg/$dkms_ver failed to install for $kver" >&2
-            summary="${summary}I: FAIL $kver${crlf}"
+            summary="${summary}I: FAIL $dkms_pkg/$dkms_ver $kver${crlf}"
             result=1
             continue
         fi
@@ -148,19 +162,19 @@ run_pkg() {
         echo "$dkmsstatus"
         if [ -z "$dkmsstatus" ]; then
             echo "E: dkms status output is empty!" >&2
-            summary="${summary}I: FAIL $kver${crlf}"
+            summary="${summary}I: FAIL $dkms_pkg/$dkms_ver $kver${crlf}"
             result=1
             continue
         fi
 
         if ! echo "$dkmsstatus" | grep -q "installed$"; then
             echo "E: not installed" >&2
-            summary="${summary}I: FAIL $kver${crlf}"
+            summary="${summary}I: FAIL $dkms_pkg/$dkms_ver $kver${crlf}"
             result=1
             continue
         fi
 
-        summary="${summary}I: PASS $kver${crlf}"
+        summary="${summary}I: PASS $dkms_pkg/$dkms_ver $kver${crlf}"
 
     done
 

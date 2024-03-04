@@ -1,0 +1,41 @@
+From 30ce11253f6371a28864fc0faa80f72ae9f58130 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Wed, 3 Jan 2024 12:07:33 +0100
+Subject: [PATCH] use bash arrays in some tests
+
+---
+ test/dkms_noautoinstall_test-1.0/dkms.conf | 6 ++----
+ test/dkms_test-1.0/dkms.conf               | 6 ++----
+ 2 files changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/test/dkms_noautoinstall_test-1.0/dkms.conf b/test/dkms_noautoinstall_test-1.0/dkms.conf
+index f816acb..86ede1e 100644
+--- a/test/dkms_noautoinstall_test-1.0/dkms.conf
++++ b/test/dkms_noautoinstall_test-1.0/dkms.conf
+@@ -1,7 +1,5 @@
+ PACKAGE_NAME="dkms_noautoinstall_test"
+ PACKAGE_VERSION="1.0"
+-BUILT_MODULE_NAME="dkms_noautoinstall_test"
+-
++BUILT_MODULE_NAME[0]="dkms_noautoinstall_test"
++DEST_MODULE_LOCATION[0]="/kernel/extra"
+ AUTOINSTALL=""
+-
+-DEST_MODULE_LOCATION="/kernel/extra"
+diff --git a/test/dkms_test-1.0/dkms.conf b/test/dkms_test-1.0/dkms.conf
+index 1009b95..b743154 100644
+--- a/test/dkms_test-1.0/dkms.conf
++++ b/test/dkms_test-1.0/dkms.conf
+@@ -1,7 +1,5 @@
+ PACKAGE_NAME="dkms_test"
+ PACKAGE_VERSION="1.0"
+-BUILT_MODULE_NAME="dkms_test"
+-
++BUILT_MODULE_NAME[0]="dkms_test"
++DEST_MODULE_LOCATION[0]="/kernel/extra"
+ AUTOINSTALL="yes"
+-
+-DEST_MODULE_LOCATION="/kernel/extra"
+-- 
+2.20.1
+

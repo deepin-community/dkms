@@ -1,0 +1,124 @@
+From 334294d61a6ed1873aa1320801dd01fc175b6b14 Mon Sep 17 00:00:00 2001
+From: Ian Abbott <abbotti@mev.co.uk>
+Date: Tue, 19 Sep 2023 12:16:37 +0100
+Subject: [PATCH 04/13] Use 'unbuild' instead of 'remove' in kernel prerm
+ script
+
+When DKMS is invoked by the kernel_prerm.d_dkms script to remove modules
+from a kernel that is being removed, it uses the DKMS 'remove' command.
+If there are no other installations of the module, it will be removed
+completely from DKMS.  That seems to be an undesirable side-effect and
+predates the introduction of the DKMS 'unbuild' command which merely
+undoes the 'install' and 'build' steps.
+
+Change the script to use 'unbuild' instead of 'remove'.  Keep the echoed
+message that says "dkms: removing: ..." because "dkms: unbuilding: ..."
+may be confusing to the user.
+
+I have tested it by removing a kernel with a module installed by DKMS
+that was the only installed instance of the module.  Without the change,
+the module was removed completely from DKMS.  With the change, the
+module was removed from the kernel, but was not removed completely.  On
+reinstalling the kernel, the module was rebuilt and reinstalled for the
+kernel by DKMS.
+
+This change was suggested by @RalfGoebel for issue #37 and might be
+Debian-specific.
+
+For Debian and Ubuntu, the 'kernel_postinst.d_dkms' script is installed as
+'/etc/kernel/postinst.d/dkms' and '/etc/kernel/header_postinst.d/dkms',
+and the 'kernel_prerm.d_dkms' script is installed as
+'/etc/kernel/prerm.d/dkms'.  The scripts are invoked in the following
+circumstances, with the script parameter $1 set to the kernel version
+from the kernel package (referred to as "${KVER}" below):
+
+1. When a "linux-headers-${KVER}" package is installed (containing the
+   stuff needed to build external modules), the
+   '/etc/kernel/header_postinst.d/dkms' ('kernel_postinst.d_dkms')
+   script is invoked to autoinstall DKMS modules for the kernel version,
+   building the modules if necessary.
+
+2. When a "linux-image-${KVER}" package is installed (containing the
+   Linux kernel binary, and in the case of Debian, also the kernel
+   module binaries), the '/etc/kernel/postinst.d/dkms
+   ('kernel_postinst.d_dkms') script is invoked to autoinstall DKMS
+   modules for the kernel version, building the modules if necessary and
+   possible.  (Building the modules will fail unless the
+   "linux-headers-${KVER}" package is installed.)
+
+3. When a "linux-headers-${KVER}" package is being removed, none of the
+   DKMS scripts are invoked.
+
+4. When a "linux-image-${KVER}" package is being removed, the
+   '/etc/kernel/prerm.d/dkms' ('kernel_prerm.d_dkms') script is invoked
+   to perform some sort of uninstallation action on all DKMS modules
+   that have been built for the kernel version.  Prior to this patch,
+   the DKMS 'remove' command was used to uninstall the modules.  This
+   patch changes that to the DKMS 'unbuild' command which is less
+   destructive.
+
+On first glance, it may seem better to use the DKMS 'uninstall' command
+when removing a "linux-image-${KVER}" package, and to use the DKMS
+'unbuild' command  when removing a "linux-headers-${KVER}" package.
+However, the "linux-image-${KVER}" and "linux-headers-${KVER}" packages
+do not depend on each other, so unbuilding the DKMS modules when the
+"linux-headers-${KVER}" package is being removed would have the side
+effect of uninstalling the DKMS modules for the kernel, even if the
+"linux-image-${KVER}" package is still installed.  Therefore, the
+compromise is to use the DKMS 'unbuild' command when removing a
+"linux-image-${KVER}" package and to do nothing when removing a
+"linux-headers-${KVER}" package.  This helps avoid littering the
+'/var/lib/dkms' directory with stale builds.  It is sub-optimal if the
+same version of the "linux-image-${KVER}" package is to be reinstalled
+later because the DKMS modules would need to be built again, but that
+should be fairly rare.  Normally, kernel packages are upgraded to a
+different version, requiring the DKMS modules to be built anyway.
+
+The script only affects DKMS modules with the "installed" status.  Only
+DKMS modules with the "installed" status have files in
+"/lib/modules/${KVER}" that need to be cleaned up.  It could be argued
+that since the script is using the DKMS 'unbuild' command, it should
+also unbuild DKMS modules with the "built" status.  There must have been
+some external intervention outside of the kernel installation/removal
+hook scripts to leave those modules at the "built" status, so the script
+may be playing it safe by leaving those DKMS modules alone.
+
+Link: https://github.com/dell/dkms/issues/37#issuecomment-1041184403
+Tested-by: Ian Abbott <abbotti@mev.co.uk>
+Signed-off-by: Ian Abbott <abbotti@mev.co.uk>
+---
+ kernel_prerm.d_dkms | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/kernel_prerm.d_dkms b/kernel_prerm.d_dkms
+index aeb8e3a..9d507fe 100755
+--- a/kernel_prerm.d_dkms
++++ b/kernel_prerm.d_dkms
+@@ -1,13 +1,22 @@
+ #!/bin/sh
+ 
+-# We're passed the version of the kernel being removed
++# This script is triggered when the kernel (linux-image) package is being
++# removed.  We're passed the version of the kernel being removed.
+ inst_kern=$1
+ 
+ if command -v dkms > /dev/null; then
+ 	dkms status -k "$inst_kern" 2>/dev/null | while IFS=",:/ " read -r name vers _ arch status; do
+ 		[ "$status" = "installed" ] || continue
+ 		echo "dkms: removing: $name $vers ($inst_kern) ($arch)" >&2
+-		dkms remove -m "$name" -v "$vers" -k "$inst_kern" -a "$arch"
++		# Compromise on using 'unbuild' to remove the module when a
++		# kernel is being removed.  The 'remove' command is too
++		# destructive.  The 'uninstall' command leaves built files
++		# around that have no other trigger to 'unbuild' them.
++		# (Triggering 'unbuild' on kernel header removal would not be
++		# a good idea because that would also cause the module to be
++		# uninstalled for the kernel, even though only the headers are
++		# being removed.)
++		dkms unbuild -m "$name" -v "$vers" -k "$inst_kern" -a "$arch"
+ 	done
+ fi
+ 
+-- 
+2.20.1
+

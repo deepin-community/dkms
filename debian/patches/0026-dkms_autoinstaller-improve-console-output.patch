@@ -1,0 +1,31 @@
+From 20164939030ece840ec3cbf566fc6155512727eb Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Wed, 6 Dec 2023 01:14:44 +0100
+Subject: [PATCH 26/26] dkms_autoinstaller: improve console output
+
+dkms autoinstall may produce multiline output
+---
+ dkms_autoinstaller.in | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/dkms_autoinstaller.in b/dkms_autoinstaller.in
+index 10c9348..0d4e46c 100755
+--- a/dkms_autoinstaller.in
++++ b/dkms_autoinstaller.in
+@@ -71,9 +71,11 @@ case "$1" in
+ 		elif ! _check_kernel_dir $kernel; then
+ 			log_action_msg "$prog: autoinstall for kernel $kernel was skipped since the kernel headers for this kernel do not seem to be installed"
+ 		else
+-			log_daemon_msg "$prog: running auto installation service for kernel $kernel"
++			log_action_msg "$prog: running auto installation service for kernel $kernel"
+ 			dkms autoinstall --kernelver $kernel
+-			log_end_msg $?
++			res=$?
++			log_daemon_msg "$prog: autoinstall for kernel" "$kernel"
++			log_end_msg $res
+ 		fi
+ 		;;
+ 	stop|restart|force-reload|status|reload)
+-- 
+2.20.1
+

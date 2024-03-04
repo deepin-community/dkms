@@ -13,6 +13,7 @@ Homepage: https://github.com/dell/dkms
 Vcs-Git: https://salsa.debian.org/debian/dkms.git
 Vcs-Browser: https://salsa.debian.org/debian/dkms
 Rules-Requires-Root: no
+Testsuite: autopkgtest-pkg-dkms
 
 Package: dkms
 Architecture: all
@@ -26,8 +27,16 @@ Depends: ${misc:Depends},
  patch,
 Recommends: fakeroot,
  sudo,
- linux-headers-686-pae | linux-headers-amd64 | linux-headers-generic | linux-headers,
 Suggests: menu, e2fsprogs
+Breaks:
+# in buster, not in bullseye
+ sl-modem-dkms (<< 2.9.11~20110321-16.0),
+# in stretch, not in buster
+ blktap-dkms (<< 2.0.93-0.10.0),
+# in jessie, not in stretch
+ oss4-dkms (<< 4.2-build2020-1~),
+# in wheezy, not in jessie
+ blcr-dkms (<< 0.8.6~b3-1.0),
 Provides:
  dkms-autopkgtest (= ${binary:Version}),
 Description: Dynamic Kernel Module System (DKMS)
@@ -54,3 +63,24 @@ Description: debhelper addon for the Dynamic Kernel Module System (DKMS)
  .
  This package provides a debhelper add-on 'dkms' that simplifies packaging of
  dkms kernel module source packages.
+
+Package: dkms-test-dkms
+Architecture: all
+Depends:
+ ${misc:Depends},
+Description: trivial dkms test kernel module
+ This package provides the dkms source code for the dkms_test kernel module.
+ .
+ This package is only intended for ci tests and not expected to be installed
+ on regular systems
+
+Package: dkms-noautoinstall-test-dkms
+Architecture: all
+Depends:
+ ${misc:Depends},
+Description: trivial dkms noautoinstall test kernel module
+ This package provides the dkms source code for the dkms_noautoinstall_test
+ kernel module.
+ .
+ This package is only intended for ci tests and not expected to be installed
+ on regular systems
