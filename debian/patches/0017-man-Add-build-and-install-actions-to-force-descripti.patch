@@ -1,0 +1,27 @@
+From 7bf3beea267f57813e9d9f354da91b4a09bd7ac6 Mon Sep 17 00:00:00 2001
+From: Mart Frauenlob <AllKind@fastest.cc>
+Date: Mon, 4 Dec 2023 13:37:08 +0100
+Subject: [PATCH 17/19] man: Add build and install actions to --force
+ description
+
+Signed-off-by: Mart Frauenlob <AllKind@fastest.cc>
+---
+ dkms.8.in | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/dkms.8.in b/dkms.8.in
+index ad34b4b..fa2b498 100644
+--- a/dkms.8.in
++++ b/dkms.8.in
+@@ -318,6 +318,8 @@ combinations on the other kernel.
+ .TP
+ .B \-\-force
+ This option can be used in conjunction with
++.B build, install 
++and 
+ .B ldtarball
+ to force copying over of extant files.
+ .TP
+-- 
+2.20.1
+

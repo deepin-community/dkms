@@ -1,0 +1,62 @@
+From b4aca95c19d223699050400995ccd9c28df4f706 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Tue, 5 Dec 2023 19:13:09 +0100
+Subject: [PATCH 23/26] run_tests.sh: add more dkms status calls
+
+---
+ run_test.sh | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/run_test.sh b/run_test.sh
+index 90c6335..0405572 100755
+--- a/run_test.sh
++++ b/run_test.sh
+@@ -676,6 +676,9 @@ Running module version sanity check.
+ depmod...
+ dkms autoinstall on ${KERNEL_VER}/${KERNEL_ARCH} succeeded for dkms_test
+ EOF
++run_status_with_expected_output 'dkms_test' << EOF
++dkms_test/1.0, ${KERNEL_VER}, ${KERNEL_ARCH}: installed
++EOF
+ 
+ echo "Running dkms autoinstall for a kernel without headers installed (expected error)"
+ run_with_expected_error 11 dkms autoinstall -k "${KERNEL_VER}-noheaders" << EOF
+@@ -757,10 +760,15 @@ dkms.conf: Warning! Zero modules specified.
+ dkms.conf: Warning! Zero modules specified.
+ Creating symlink /var/lib/dkms/dkms_conf_test/1.0/source -> /usr/src/dkms_conf_test-1.0
+ EOF
++run_status_with_expected_output 'dkms_conf_test' << EOF
++dkms_conf_test/1.0: added
++EOF
+ 
+ run_with_expected_output dkms remove --all -m dkms_conf_test -v 1.0 << EOF
+ Deleting module dkms_conf_test-1.0 completely from the DKMS tree.
+ EOF
++run_status_with_expected_output 'dkms_conf_test' << EOF
++EOF
+ 
+ echo 'Testing add/build/install of a test module building zero kernel modules'
+ run_with_expected_output dkms install -k "${KERNEL_VER}" -m dkms_conf_test -v 1.0 << EOF
+@@ -973,6 +981,9 @@ EOF
+ echo 'Removing /usr/src/dkms_multiver_test-1.0 /usr/src/dkms_multiver_test-2.0'
+ rm -r /usr/src/dkms_multiver_test-1.0 /usr/src/dkms_multiver_test-2.0
+ 
++echo 'Checking that the environment is clean again'
++check_no_dkms_test
++
+ ############################################################################
+ ### Testing dkms operations ...
+ ############################################################################
+@@ -1553,6 +1564,9 @@ EOF
+ echo 'Removing /usr/src/dkms_build_exclusive_test-1.0'
+ rm -r /usr/src/dkms_build_exclusive_test-1.0
+ 
++echo 'Checking that the environment is clean again'
++check_no_dkms_test
++
+ ############################################################################
+ ### Testing os-release detection                                         ###
+ ############################################################################
+-- 
+2.20.1
+

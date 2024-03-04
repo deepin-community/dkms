@@ -1,0 +1,34 @@
+From c14cc2c4bd47bb5bb323d3c8ede92347b33735ef Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Wed, 6 Dec 2023 19:14:56 +0100
+Subject: [PATCH] do_depmod: use $install_tree instead of hardcoding
+ /lib/modules
+
+---
+ dkms.in | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/dkms.in b/dkms.in
+index d9e2d35..9484863 100644
+--- a/dkms.in
++++ b/dkms.in
+@@ -339,12 +339,12 @@ do_depmod()
+     else
+         depmod -a "$1"
+     fi
+-    if [ -f /lib/modules/$1/modules.dep ] && [ ! -s /lib/modules/$1/modules.dep ]; then
++    if [ -f $install_tree/$1/modules.dep ] && [ ! -s $install_tree/$1/modules.dep ]; then
+         # if modules.dep is empty, we just removed the last kernel module from
+         # no longer installed kernel $1, so do not leave stale depmod files around
+-        rm -fv /lib/modules/$1/modules.{alias,dep,devname,softdep,symbols,*.bin}
+-        rmdir --ignore-fail-on-non-empty /lib/modules/$1
+-        test -d /lib/modules/$1 || echo $"Removed /lib/modules/$1"
++        rm -fv $install_tree/$1/modules.{alias,dep,devname,softdep,symbols,*.bin}
++        rmdir --ignore-fail-on-non-empty $install_tree/$1
++        test -d $install_tree/$1 || echo $"removed directory $install_tree/$1"
+     fi
+ }
+ 
+-- 
+2.20.1
+

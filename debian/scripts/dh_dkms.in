@@ -125,12 +125,14 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		$l =~ /PACKAGE_NAME=(["']?)(.*)\1/ && ($is_snippet = 1 && $package_name = $2);
 		$l =~ /PACKAGE_VERSION=(["']?)(.*)\1/ && ($package_version = $2);
 		$l =~ /BUILD_EXCLUSIVE_CONFIG=(["']?)(.*)\1/ && ($build_exclusive_config = $2);
+		$l =~ /BUILD_EXCLUSIVE_KERNEL_MIN=(["']?)(.*)\1/ && ($build_exclusive_config = "yes");
+		$l =~ /BUILD_EXCLUSIVE_KERNEL_MAX=(["']?)(.*)\1/ && ($build_exclusive_config = "yes");
 	}
 	close(IN);
 
 	#$ENV{DH_AUTOSCRIPTDIR} = "debian/scripts/";
 	if ($build_exclusive_config) {
-		addsubstvar($package, "misc:Depends", "dkms", ">= 3.0.3-4~");
+		addsubstvar($package, "misc:Depends", "dkms", ">= 3.0.11");
 	}
 	elsif ($dh{LEGACY_DKMS}) {
 		doit("install", "-p", "-D", "-m755", "$dkms_dir/common.postinst", "$tmp/usr/share/$package/postinst");
@@ -140,8 +142,8 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		addsubstvar($package, "misc:Depends", "dkms", ">= 2.1.0.0");
 	}
 
-	if ($dh{V_FLAG_SET}) {
-		$package_version = $dh{V_FLAG};
+	if ($dh{V_FLAG_SET} || $package_version eq "#MODULE_VERSION#") {
+		$package_version = $dh{V_FLAG} || "";
 		if ($package_version eq "") {
 			# Call isnative because it sets $dh{VERSION}
 			# as a side effect.
@@ -149,6 +151,8 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			$package_version = $dh{VERSION};
 			# Remove the Debian revision
 			$package_version =~ s/-[^-]+$//;
+			# Remove the Debian epoch
+			$package_version =~ s/^\d+://;
 		}
 
 		my $old_name = $name;
@@ -162,6 +166,9 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
         error "could not determine package version"
           unless defined($package_version);
+
+        error "invalid package version '$package_version'"
+          unless $package_version =~ /^[-+.~:0-9a-zA-Z]+$/;
 
 	autoscript($package, "prerm", "prerm-dkms",
 	    "s/#MODULE_NAME#/$package_name/;s/#MODULE_VERSION#/$package_version/");

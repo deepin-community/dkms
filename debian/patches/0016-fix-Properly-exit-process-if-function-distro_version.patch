@@ -1,0 +1,37 @@
+From 98fd2eb0b8b22a71ac25b10b3e8e9a4aed61be5a Mon Sep 17 00:00:00 2001
+From: Edwin Kofler <edwin@kofler.dev>
+Date: Fri, 1 Dec 2023 18:21:18 -0800
+Subject: [PATCH 16/19] fix: Properly exit process if function `distro_version`
+ fails
+
+`distro_version` contains code that can run `exit`, which is supposed to
+exit the whole process. However, `distro_version` runs in a subshell.
+By default in Bash, this means that `exit` will only exit the subshell, and set `?`
+to that exit code. The rest of script will execute, despite the error.
+
+There are two ways to fix this:
+- Enable the POSIX shell option `errexit` for the entire script
+- Manually check for non-zero exit code and "cascade the error"
+
+The latter was chosen because it is a localized change that does not
+affect the behavior of the entire script.
+---
+ dkms.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/dkms.in b/dkms.in
+index 54a1010..d021cba 100644
+--- a/dkms.in
++++ b/dkms.in
+@@ -2325,7 +2325,7 @@ unset CC CXX CFLAGS CXXFLAGS LDFLAGS
+ # Set important variables
+ current_kernel=$(uname -r)
+ current_os=$(uname -s)
+-running_distribution=$(distro_version)
++running_distribution=$(distro_version) || exit
+ dkms_tree="/var/lib/dkms"
+ source_tree="/usr/src"
+ install_tree="/lib/modules"
+-- 
+2.20.1
+

@@ -55,13 +55,16 @@ is a framework which allows kernel modules to be dynamically built
 for each kernel on your system in a simplified and organized fashion.
 .SH ACTIONS
 .SY add
-.OP module/module\-version
-.OP /path/to/source\-tree
-.OP /path/to/tarball.tar
+.OP "module/module\-version | /path/to/source\-tree | /path/to/tarball.tar"
 .YS
 .IP "" 4
 Adds a module/module\-version combination to the tree for builds and installs.
-If module/module\-version, \-m module/module\-version, or \-m module\ \-v version are passed as options, this command
+If
+.IR module/module\-version ,
+.IR "\-m module/module\-version" ,
+or
+.I \-m module\ \-v module\-version
+are passed as options, this command
 requires source in
 .I /usr/src/<module>\-<module\-version>/
 as well as a properly
@@ -74,7 +77,7 @@ is passed as an option, and source-tree contains a
 file, it will copy
 .I /path/to/source\-tree
 to
-.I /usr/src/module\-module\-version.
+.IR /usr/src/module\-module\-version .
 If
 .I /path/to/tarball.tar
 is passed, this command behaves like the
@@ -146,8 +149,8 @@ by default, and the
 .B --force
 option should be used to override this.
 If you pass a .rpm file, dkms will try to install that file with
-.B rpm -Uvh
-, and it will perform an
+.BR "rpm -Uvh" ,
+and it will perform an
 .B autoinstall
 action to be sure that everything is built for your kernel if the RPM installed successfully.
 .SY uninstall
@@ -426,8 +429,8 @@ with the modules found underneath the /collisions directory, and they will be st
 until you manually delete them.
 .SH DKMS.CONF
 When performing an
-.B add
-, a proper
+.BR add ,
+a proper
 .I dkms.conf
 file must be found. A properly formatted conf file is essential
 for communicating to
@@ -451,42 +454,16 @@ largest family consists of BUILT_MODULE_NAME[#], BUILT_MODULE_LOCATION[#], DEST_
 DEST_MODULE_LOCATION[#] and STRIP[#]. When indexing these arrays when creating your
 dkms.conf, each family should start at index value 0.
 .TP
-.B MAKE[#]=
-The MAKE directive array tells DKMS which make command should be used for building your module. The default make command
-should be put into
-.B MAKE[0].
-Other entries in the MAKE array will only be used if their corresponding entry in
-.B MAKE_MATCH[#]
-matches, as a regular expression (using grep -E), the kernel that the module is being built for.
-Note that if no value is placed in
-.B MAKE_MATCH[#]
-for any
-.B MAKE[#]
-where # > 0, then that
-.B MAKE
-directive is ignored.
-.B MAKE_MATCH[0]
-is optional and if it is populated, it will be used to determine
-if MAKE[0] should be used to build the module for that kernel. If multiple
-.B MAKE_MATCH
-directives match against the kernel being built for, the last matching
-.B MAKE[#]
-will be used to build your module. If no MAKE directive is specified or if no
-MAKE_MATCH matches the kernel being built for, DKMS
-will attempt to use a generic MAKE command to build your module.
-
-KERNELRELEASE will be automatically appended to MAKE[#]. If you want to
-suppress this behavior, you can quote the make command: 'make'.
+.B PACKAGE_NAME=
+This directive is used to give the name associated with the entire package of modules. This is the same
+name that is used with the
+.B \-m
+option when building, adding, etc. and may not necessarily be the same as the MODULE_NAME. This
+directive must be present in every dkms.conf.
 .TP
-.B MAKE_MATCH[#]=
-See the above entry on
-.B MAKE[#]
-directives. This array should be populated with regular expressions which, when matched
-against the kernel being built for, will tell
-.B DKMS
-to use the corresponding make command in the
-.B MAKE[#]
-directive array to build your module.
+.B PACKAGE_VERSION=
+This directive is used to give the version associated with the entire package of modules being installed within that dkms
+package. This directive must be present in every dkms.conf.
 .TP
 .B BUILT_MODULE_NAME[#]=
 This directive gives the name of the module just after it is built. If your DKMS module
@@ -547,20 +524,57 @@ By default strip is considered to be "yes". If set to "no", DKMS will not
 run strip \-g against your built module to remove debug symbols from it.
 STRIP[0] is used as the default for any unset entries in the STRIP array.
 .TP
-.B PACKAGE_NAME=
-This directive is used to give the name associated with the entire package of modules. This is the same
-name that is used with the
-.B \-m
-option when building, adding, etc. and may not necessarily be the same as the MODULE_NAME. This
-directive must be present in every dkms.conf.
+.B MAKE[#]=
+The MAKE directive array tells DKMS which make command should be used for building your module. The default make command
+should be put into
+.B MAKE[0].
+Other entries in the MAKE array will only be used if their corresponding entry in
+.B MAKE_MATCH[#]
+matches, as a regular expression (using grep -E), the kernel that the module is being built for.
+Note that if no value is placed in
+.B MAKE_MATCH[#]
+for any
+.B MAKE[#]
+where # > 0, then that
+.B MAKE
+directive is ignored.
+.B MAKE_MATCH[0]
+is optional and if it is populated, it will be used to determine
+if MAKE[0] should be used to build the module for that kernel. If multiple
+.B MAKE_MATCH
+directives match against the kernel being built for, the last matching
+.B MAKE[#]
+will be used to build your module. If no MAKE directive is specified or if no
+MAKE_MATCH matches the kernel being built for, DKMS
+will attempt to use a generic MAKE command to build your module.
+
+KERNELRELEASE will be automatically appended to MAKE[#]. If you want to
+suppress this behavior, you can quote the make command: 'make'.
 .TP
-.B PACKAGE_VERSION=
-This directive is used to give the version associated with the entire package of modules being installed within that dkms
-package. This directive must be present in every dkms.conf.
+.B MAKE_MATCH[#]=
+See the above entry on
+.B MAKE[#]
+directives. This array should be populated with regular expressions which, when matched
+against the kernel being built for, will tell
+.B DKMS
+to use the corresponding make command in the
+.B MAKE[#]
+directive array to build your module.
 .TP
 .B CLEAN=
 CLEAN specifies the make clean command to be used to clean up both before and after building the
 module. If unset, it is assumed to be "make clean".
+.TP
+.B NO_WEAK_MODULES=
+The
+.B NO_WEAK_MODULES
+parameter prevents dkms from creating a symlink into the weak-updates directory, which is the
+default on Red Hat derivatives. The weak modules facility was designed to eliminate the need to
+rebuild kernel modules when kernel upgrades occur and relies on the symbols within the kABI.
+
+Fedora does not guaranteed a stable kABI so it should be disabled in the specific module override by setting it to "yes". For example, for an Nvidia DKMS module you would set the following in /etc/dkms/nvidia.conf:
+
+NO_WEAK_MODULES="yes"
 .TP
 .B OBSOLETE_BY=
 This directive allows you to specify a kernel version that obsoletes the necessity for this
@@ -581,17 +595,6 @@ This also introduces a implicit distribution/version dependency on the
 package, as the value of
 .B OBSOLETE_BY
 is meaningful only in the context of a single distribution/version.
-
-If you feel you must use it, please use as such in dkms.conf:
-
- ubuntu_804="Ubuntu
- 8.04"
- if [ \-x /usr/bin/lsb_release ]; then
-   if [ "$(/usr/bin/lsb_release \-sir)" == "${ubuntu_804}" ]; then
-     OBSOLETE_BY="2.6.25"
-   fi
- fi
-
 .TP
 .B PATCH[#]=
 Use the PATCH directive array to specify patches which should be applied to your source before a build occurs.
@@ -640,16 +643,46 @@ missing or broken dependencies cause non-fatal warnings.
 .TP
 .B BUILD_EXCLUSIVE_KERNEL=
 This optional directive allows you to specify a regular expression which defines
-the subset of kernels which DKMS is allowed to build your module for. If the kernel
-being built for does not match against this regular expression, the dkms build
-will error out. For example, if you set it as ="^2\.4.*", your module would not be
-built for 2.6 kernels.
+the subset of kernels which DKMS is allowed to build your module for.
+If the kernel being built for does not match against this regular expression (or
+does not the satisfy the constraints of any other
+.B BUILD_EXCLUSIVE_*
+directive), the dkms build will error out with exit code 77.
+Note that dkms autoinstall will ignore this type of error condition and simply
+skip the respective modules.
+For example, if you set it as ="^2\.4.*", your module would not be built for 2.6
+or later kernels.
+.TP
+.B BUILD_EXCLUSIVE_KERNEL_MIN=
+and
+.B BUILD_EXCLUSIVE_KERNEL_MAX=
+These optional directives allow one to specify the minimal and maximal kernel
+versions supported by the module. If one (or both) of these are defined, the
+module will not be built for kernels outside the specified version limits.
+For example, if you set
+.B BUILD_EXCLUSIVE_KERNEL_MIN
+as "=3.5", your module would be built for e.g. "3.5-rc2", "3.6.18" or other
+later versions but not for "3.4.999" or earlier kernels.
+Similarly, if you set
+.B BUILD_EXCLUSIVE_KERNEL_MAX
+as ="4.12", your module would be built for e.g. "4.11.999", "3.9-rc5" or
+other earlier versions, but not for "4.12-rc1" or later kernels.
 .TP
 .B BUILD_EXCLUSIVE_ARCH=
 This optional directive functions very similarly to
 .B BUILD_EXCLUSIVE_KERNEL
 except that it matches against the kernel architecture. For example, if you set
 it to ="i.86", your module would not be built for ia32e, x86_64, amd64, s390, etc.
+.TP
+.B BUILD_EXCLUSIVE_CONFIG=
+This optional directive allows you to specify a space separated list of
+kernel configuration options ("CONFIG_FOO") that must be enabled in the
+targeted kernels ".config" file (either to be compiled in or to be built
+as a module) or absent (if prefixed with an exclamation mark, e.g.
+"!CONFIG_BAR") in order to build the module.
+For example, if you set it as ="CONFIG_PCI !CONFIG_PREEMPT_RT", your module
+would only be built for kernels that have PCI enabled, but the RT patchset
+disabled.
 .TP
 .B POST_ADD=
 The name of the script to be run after an
@@ -699,8 +732,8 @@ module (eg. MAKE="make all INCLUDEDIR=/lib/modules/${kernelver}/build/include").
 .B $kernel_source_dir
 This variable holds the value of the location of your kernel source directory. Usually, this
 will be
-.I /lib/modules/$kernelver/build
-, unless otherwise specified with the
+.IR /lib/modules/$kernelver/build ,
+unless otherwise specified with the
 .B \-\-kernelsourcedir
 option.
 .SH DKMS.CONF OVERRIDES
@@ -744,7 +777,7 @@ Used by the common postinst for DKMS modules. It controls if the build should be
 line equivalent.
 .TP
 .B $sign_file
-This is the path of the 
+This is the path of the
 .I sign-file
 kernel binary that is used to sign the kernel modules. The variable
 .B $kernelver

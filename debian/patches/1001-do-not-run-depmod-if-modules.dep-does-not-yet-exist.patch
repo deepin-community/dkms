@@ -1,0 +1,29 @@
+From 8fab3c1390e57a0a21aaaf85757334c783b94117 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Wed, 6 Dec 2023 19:08:34 +0100
+Subject: [PATCH] do not run depmod if modules.dep does not yet exist
+
+i.e. only linux headers but no corresponding linux image is installed
+---
+ dkms.in | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/dkms.in b/dkms.in
+index 095178a..d9e2d35 100644
+--- a/dkms.in
++++ b/dkms.in
+@@ -329,6 +329,11 @@ do_depmod()
+     if [ "${current_os}" != "Linux" ] ; then
+         return
+     fi
++    if [[ ! -f $install_tree/$1/modules.dep ]]; then
++        # if the corresponding linux image $1 is not installed
++        # do not create modules.dep
++        return
++    fi
+     if [[ -f /boot/System.map-$1 ]]; then
+         depmod -a "$1" -F "/boot/System.map-$1"
+     else
+-- 
+2.20.1
+

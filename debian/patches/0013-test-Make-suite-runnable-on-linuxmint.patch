@@ -1,0 +1,25 @@
+From 749b219744ccb3bbc6219aa48db653bbc9ebbebb Mon Sep 17 00:00:00 2001
+From: Edwin Kofler <edwin@kofler.dev>
+Date: Mon, 23 Oct 2023 05:59:49 -0700
+Subject: [PATCH 13/32] test: Make suite runnable on `linuxmint`
+
+---
+ run_test.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/run_test.sh b/run_test.sh
+index 87c464d..50e233b 100755
+--- a/run_test.sh
++++ b/run_test.sh
+@@ -242,7 +242,7 @@ case "${os_id}" in
+     sles | suse | opensuse)
+         expected_dest_loc=updates
+         ;;
+-    arch | debian | ubuntu)
++    arch | debian | ubuntu | linuxmint)
+         expected_dest_loc=updates/dkms
+         ;;
+     alpine)
+-- 
+2.20.1
+

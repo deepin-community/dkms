@@ -1,0 +1,27 @@
+From 2dbc4a9c155c02c65b932deca89f238a9a72cb49 Mon Sep 17 00:00:00 2001
+From: Andrew Ammerlaan <andrewammerlaan@gentoo.org>
+Date: Sun, 24 Sep 2023 15:45:34 +0200
+Subject: [PATCH 01/32] run_test.sh: add gentoo as valid os id in tests
+
+Signed-off-by: Andrew Ammerlaan <andrewammerlaan@gentoo.org>
+---
+ run_test.sh | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/run_test.sh b/run_test.sh
+index 4cda255..87c464d 100755
+--- a/run_test.sh
++++ b/run_test.sh
+@@ -249,6 +249,9 @@ case "${os_id}" in
+         expected_dest_loc=kernel/extra
+         mod_compression_ext=.gz
+         ;;
++    gentoo)
++        expected_dest_loc=kernel/extra
++        ;;
+     *)
+         echo >&2 "Error: unknown Linux distribution ID ${os_id}"
+         exit 1
+-- 
+2.20.1
+

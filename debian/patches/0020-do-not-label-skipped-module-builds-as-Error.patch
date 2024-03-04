@@ -1,0 +1,111 @@
+From 81d9fb6d350681491c54f17d4f232a6c80079af2 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Fri, 24 Nov 2023 15:15:57 +0100
+Subject: [PATCH 20/26] do not label skipped module builds as 'Error!'
+
+---
+ dkms.in     | 16 ++++++++++++++--
+ run_test.sh | 24 ++++++++++++++++++------
+ 2 files changed, 32 insertions(+), 8 deletions(-)
+
+diff --git a/dkms.in b/dkms.in
+index d021cba..a7d46f1 100644
+--- a/dkms.in
++++ b/dkms.in
+@@ -138,6 +138,16 @@ die() {
+     [[ $die_is_fatal = yes ]] && exit $ret || return $ret
+ }
+ 
++# Print a warning message and die with the passed error code.
++diewarn() {
++    # $1 = error code to return with
++    # rest = strings to print before we exit.
++    ret=$1
++    shift
++    warn "$@"
++    [[ $die_is_fatal = yes ]] && exit $ret || return $ret
++}
++
+ mktemp_or_die() {
+     local t
+     t=$(mktemp "$@") && echo "$t" && return
+@@ -1014,8 +1024,10 @@ prepare_build()
+     read_conf_or_die "$kernelver" "$arch"
+ 
+     # Error out if build_exclude is set
+-    [[ $build_exclude ]] && die 77 \
+-        $"The $base_dir/dkms.conf for module $module includes a BUILD_EXCLUSIVE directive which does not match this kernel/arch/config."\
++    [[ $build_exclude ]] && diewarn 77 \
++        $"The $base_dir/dkms.conf"\
++        $"for module $module includes a BUILD_EXCLUSIVE directive"\
++        $"which does not match this kernel/arch/config."\
+         $"This indicates that it should not be built."
+ 
+     # Error out if source_tree is basically empty (binary-only dkms tarball w/ --force check)
+diff --git a/run_test.sh b/run_test.sh
+index c731892..90c6335 100755
+--- a/run_test.sh
++++ b/run_test.sh
+@@ -1366,7 +1366,9 @@ fi
+ # Should this really fail?
+ echo '(Not) building the build-exclusive test module'
+ run_with_expected_error 77 dkms build -k "${KERNEL_VER}" -m dkms_build_exclusive_test -v 1.0 << EOF
+-Error! The /var/lib/dkms/dkms_build_exclusive_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf for module dkms_build_exclusive_test includes a BUILD_EXCLUSIVE directive which does not match this kernel/arch/config.
++Warning: The /var/lib/dkms/dkms_build_exclusive_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf
++for module dkms_build_exclusive_test includes a BUILD_EXCLUSIVE directive
++which does not match this kernel/arch/config.
+ This indicates that it should not be built.
+ EOF
+ run_status_with_expected_output 'dkms_build_exclusive_test' << EOF
+@@ -1375,7 +1377,9 @@ EOF
+ 
+ echo "Running dkms autoinstall (1 x skip)"
+ run_with_expected_output dkms autoinstall -k "${KERNEL_VER}" << EOF
+-Error! The /var/lib/dkms/dkms_build_exclusive_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf for module dkms_build_exclusive_test includes a BUILD_EXCLUSIVE directive which does not match this kernel/arch/config.
++Warning: The /var/lib/dkms/dkms_build_exclusive_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf
++for module dkms_build_exclusive_test includes a BUILD_EXCLUSIVE directive
++which does not match this kernel/arch/config.
+ This indicates that it should not be built.
+ dkms autoinstall on ${KERNEL_VER}/${KERNEL_ARCH} was skipped for dkms_build_exclusive_test
+ EOF
+@@ -1393,7 +1397,9 @@ EOF
+ 
+ echo "Running dkms autoinstall (1 x skip, 1 x pass)"
+ run_with_expected_output dkms autoinstall -k "${KERNEL_VER}" << EOF
+-Error! The /var/lib/dkms/dkms_build_exclusive_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf for module dkms_build_exclusive_test includes a BUILD_EXCLUSIVE directive which does not match this kernel/arch/config.
++Warning: The /var/lib/dkms/dkms_build_exclusive_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf
++for module dkms_build_exclusive_test includes a BUILD_EXCLUSIVE directive
++which does not match this kernel/arch/config.
+ This indicates that it should not be built.
+ 
+ Building module:
+@@ -1441,7 +1447,9 @@ EOF
+ 
+ echo "Running dkms autoinstall (1 x skip, 1 x fail, 1 x pass) (expected error)"
+ run_with_expected_error 11 dkms autoinstall -k "${KERNEL_VER}" << EOF
+-Error! The /var/lib/dkms/dkms_build_exclusive_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf for module dkms_build_exclusive_test includes a BUILD_EXCLUSIVE directive which does not match this kernel/arch/config.
++Warning: The /var/lib/dkms/dkms_build_exclusive_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf
++for module dkms_build_exclusive_test includes a BUILD_EXCLUSIVE directive
++which does not match this kernel/arch/config.
+ This indicates that it should not be built.
+ 
+ Building module:
+@@ -1510,9 +1518,13 @@ fi
+ 
+ echo "Running dkms autoinstall (2 x skip, with dependency)"
+ run_with_expected_output dkms autoinstall -k "${KERNEL_VER}" << EOF
+-Error! The /var/lib/dkms/dkms_build_exclusive_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf for module dkms_build_exclusive_test includes a BUILD_EXCLUSIVE directive which does not match this kernel/arch/config.
++Warning: The /var/lib/dkms/dkms_build_exclusive_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf
++for module dkms_build_exclusive_test includes a BUILD_EXCLUSIVE directive
++which does not match this kernel/arch/config.
+ This indicates that it should not be built.
+-Error! The /var/lib/dkms/dkms_build_exclusive_dependencies_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf for module dkms_build_exclusive_dependencies_test includes a BUILD_EXCLUSIVE directive which does not match this kernel/arch/config.
++Warning: The /var/lib/dkms/dkms_build_exclusive_dependencies_test/1.0/${KERNEL_VER}/${KERNEL_ARCH}/dkms.conf
++for module dkms_build_exclusive_dependencies_test includes a BUILD_EXCLUSIVE directive
++which does not match this kernel/arch/config.
+ This indicates that it should not be built.
+ dkms autoinstall on ${KERNEL_VER}/${KERNEL_ARCH} was skipped for dkms_build_exclusive_test dkms_build_exclusive_dependencies_test
+ EOF
+-- 
+2.20.1
+

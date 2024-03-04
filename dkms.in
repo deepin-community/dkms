@@ -27,7 +27,8 @@ shopt -s extglob
 # The last group of variables has been deprecated
 readonly dkms_conf_variables="CLEAN PACKAGE_NAME
    PACKAGE_VERSION POST_ADD POST_BUILD POST_INSTALL POST_REMOVE PRE_BUILD
-   PRE_INSTALL BUILD_DEPENDS BUILD_EXCLUSIVE_KERNEL BUILD_EXCLUSIVE_ARCH
+   PRE_INSTALL BUILD_DEPENDS BUILD_EXCLUSIVE_ARCH BUILD_EXCLUSIVE_CONFIG
+   BUILD_EXCLUSIVE_KERNEL BUILD_EXCLUSIVE_KERNEL_MIN BUILD_EXCLUSIVE_KERNEL_MAX
    build_exclude OBSOLETE_BY MAKE MAKE_MATCH
    PATCH PATCH_MATCH patch_array BUILT_MODULE_NAME
    built_module_name BUILT_MODULE_LOCATION built_module_location
@@ -268,7 +269,7 @@ setup_kernels_arches()
             kernelver[$i]=${line%/*}
             arch[$i]=${line#*/}
             i=$(($i + 1))
-        done < <(module_status_built "$module" "$module_version")
+        done < <(module_status_built "$module" "$module_version" | sort -V)
     fi
 
     # Set default kernel version and arch, if none set (but only --all isn't set)
@@ -285,6 +286,9 @@ setup_kernels_arches()
                     arch[0]="ia32e"
                 fi
             fi
+        fi
+        if [[ ! $arch ]]; then
+            die 12 $"Could not determine architecture."
         fi
     fi
 
@@ -323,10 +327,10 @@ do_depmod()
 }
 
 # Grab distro information from os-release.
-# Falls back to LSB for compliant distros.
 distro_version()
 {
-    if [[ -r /etc/os-release ]]; then
+    [[ -r /etc/os-release ]] || die 4 $"System is missing /etc/os-release file."
+    (
         . /etc/os-release
         if [[ "$ID" = "ubuntu" ]]; then
             # ID_LIKE=debian in ubuntu
@@ -336,36 +340,7 @@ distro_version()
         else
             echo $ID
         fi
-        return
-    fi
-
-    local DISTRIB_ID
-
-    # Try the LSB-provided strings first
-    if [ -r /etc/lsb-release ]; then
-        . /etc/lsb-release
-    elif type lsb_release >/dev/null 2>&1; then
-        DISTRIB_ID=$(lsb_release -i -s)
-    fi
-
-    case ${DISTRIB_ID} in
-        Fedora)
-            echo fedora
-            ;;
-        RedHatEnterprise*|CentOS|ScientificSL)
-            echo rhel
-            ;;
-        SUSE*)
-            echo sles
-            ;;
-        *)
-            if [[ ${DISTRIB_ID} ]]; then
-                echo "${DISTRIB_ID}"
-            else
-                echo unknown
-            fi
-            ;;
-    esac
+    )
 }
 
 override_dest_module_location()
@@ -499,6 +474,18 @@ read_conf()
     pre_install="$PRE_INSTALL"
     obsolete_by="$OBSOLETE_BY"
 
+    # Fail if no PACKAGE_NAME
+    if [[ ! $package_name ]]; then
+        echo $"dkms.conf: Error! No 'PACKAGE_NAME' directive specified.">&2
+        return_value=1
+    fi
+
+    # Fail if no PACKAGE_VERSION
+    if [[ ! $package_version ]]; then
+        echo $"dkms.conf: Error! No 'PACKAGE_VERSION' directive specified.">&2
+        return_value=1
+    fi
+
     # Set module naming/location arrays
     local index array_size=0 s
     for s in ${#BUILT_MODULE_NAME[@]} \
@@ -527,8 +514,8 @@ read_conf()
 
         # If unset, set by defaults
         [[ ! ${built_module_name[$index]} ]] && \
-            ((${#DEST_MODULE_LOCATION[@]} == 1)) && \
-            built_module_name[$index]=$module
+            ((array_size == 1)) && \
+            built_module_name[$index]=$PACKAGE_NAME
         [[ ! ${dest_module_name[$index]} ]] && \
             dest_module_name[$index]=${built_module_name[$index]}
         [[ ${built_module_location[$index]} && \
@@ -557,7 +544,7 @@ read_conf()
                 ;;
         esac
 
-        # Override location for specific kernels
+        # Override location for specific distributions
         dest_module_location[$index]="$(override_dest_module_location ${dest_module_location[$index]})"
 
         # Fail if no DEST_MODULE_LOCATION
@@ -565,7 +552,8 @@ read_conf()
             echo $"dkms.conf: Error! No 'DEST_MODULE_LOCATION' directive specified for record #$index.">&2
             return_value=1
         fi
-            # Fail if bad DEST_MODULE_LOCATION
+
+        # Fail if bad DEST_MODULE_LOCATION
         case ${DEST_MODULE_LOCATION[$index]} in
             /kernel*)
                 ;;
@@ -580,6 +568,11 @@ read_conf()
             ;;
         esac
     done
+
+    # Warn if no modules are specified
+    if ((array_size == 0)); then
+        echo $"dkms.conf: Warning! Zero modules specified." >&2
+    fi
 
     # Get the correct make command
     [[ ${MAKE_MATCH[0]} ]] || make_command="${MAKE[0]}"
@@ -621,24 +614,17 @@ read_conf()
 
     # Set build_exclude
     [[ $BUILD_EXCLUSIVE_KERNEL && ! $1 =~ $BUILD_EXCLUSIVE_KERNEL ]] && build_exclude="yes"
+    [[ $BUILD_EXCLUSIVE_KERNEL_MIN && "$(VER "$1")" < "$(VER "$BUILD_EXCLUSIVE_KERNEL_MIN")" ]] && build_exclude="yes"
+    [[ $BUILD_EXCLUSIVE_KERNEL_MAX && "$(VER "$1")" > "$(VER "$BUILD_EXCLUSIVE_KERNEL_MAX")" ]] && build_exclude="yes"
     [[ $BUILD_EXCLUSIVE_ARCH && ! $2 =~ $BUILD_EXCLUSIVE_ARCH ]] && build_exclude="yes"
-
-    # Fail if absolutely no DEST_MODULE_LOCATION
-    if ((${#dest_module_location[@]} == 0)); then
-        echo $"dkms.conf: Error! No 'DEST_MODULE_LOCATION' directive specified." >&2
-        return_value=1
-    fi
-
-    # Fail if no PACKAGE_NAME
-    if [[ ! $package_name ]]; then
-        echo $"dkms.conf: Error! No 'PACKAGE_NAME' directive specified.">&2
-        return_value=1
-    fi
-
-    # Fail if no PACKAGE_VERSION
-    if [[ ! $package_version ]]; then
-        echo $"dkms.conf: Error! No 'PACKAGE_VERSION' directive specified.">&2
-        return_value=1
+    if [[ $BUILD_EXCLUSIVE_CONFIG && -e "${kernel_config}" ]]; then
+        local kconf
+        for kconf in $BUILD_EXCLUSIVE_CONFIG ; do
+            case "$kconf" in
+                !*) grep -q "^${kconf#!}=[ym]" "${kernel_config}" && build_exclude="yes" ;;
+                *)  grep -q "^${kconf}=[ym]" "${kernel_config}" || build_exclude="yes" ;;
+            esac
+        done
     fi
 
     # Set clean
@@ -672,7 +658,7 @@ get_module_verinfo(){
             ;;
     esac
     done < <(modinfo "$1")
-    
+
     echo -E "${ver}"
     # Use obsolete checksum info if srcversion is not available
     echo -E "${srcver:-$checksum}"
@@ -719,7 +705,7 @@ check_version_sanity()
     local lib_tree="$install_tree/$1" res=
     echo $"Running module version sanity check."
     local i=0
-    if [ -n $3 ]; then
+    if [ -n "$3" ]; then
         # Magic split into array syntax saves trivial awk and cut calls.
         local -a obs=(${3//-/ })
         local -a my=(${1//-/ })
@@ -767,7 +753,7 @@ check_version_sanity()
         return 0
     fi
     local dkms_module=$(compressed_or_uncompressed "$dkms_tree/$module/$module_version/$1/$2/module/" "${4}")
-    
+
     local cmp_res="$(compare_module_version "${kernels_module}" "${dkms_module}")"
     if [[ "${cmp_res}" = ">" ]]; then
         if [[ ! "$force" ]]; then
@@ -776,13 +762,17 @@ check_version_sanity()
                 $"You may override by specifying --force."
             return 1
         fi
-    elif [[ "${cmp_res}" = "="* ]]; then
+    elif [[ "${cmp_res}" = "==" ]]; then
         if [[ ! "$force" ]]; then
-            echo $"Module version $(get_module_verinfo "${dkms_module}" | head -n 1) for $4${module_suffix}" >&2
-            echo $"exactly matches what is already found in kernel $1." >&2
-            echo $"DKMS will not replace this module." >&2
-            echo $"You may override by specifying --force." >&2
-            return 1
+            # if the module has neither version nor srcversion/checksum, check the binary files instead
+            local verinfo="$(get_module_verinfo "${dkms_module}")"
+            if [[ "$(echo "$verinfo" | tr -d '[:space:]')" ]] || diff "${kernels_module}" "${dkms_module}" &>/dev/null; then
+                echo $"Module version $(echo "$verinfo" | head -n 1) for $4${module_suffix}" >&2
+                echo $"exactly matches what is already found in kernel $1." >&2
+                echo $"DKMS will not replace this module." >&2
+                echo $"You may override by specifying --force." >&2
+                return 1
+            fi
         fi
     fi
     return 0
@@ -799,7 +789,7 @@ check_module_args() {
 read_conf_or_die() {
     read_conf "$@" && return
     die 8 $"Bad conf file."\
-        $"File: $conf does not represent a valid dkms.conf file."
+        $"File: ${3:-$conf} does not represent a valid dkms.conf file."
 }
 
 run_build_script() {
@@ -899,6 +889,20 @@ prepare_kernel()
 
 prepare_signing()
 {
+    do_signing=0
+
+    if [[ ! -f "${kernel_config}" ]]; then
+        echo "Kernel config ${kernel_config} not found, modules won't be signed"
+        return
+    fi
+
+    if ! grep -q "^CONFIG_MODULE_SIG_HASH=" "${kernel_config}"; then
+        echo "The kernel is built without module signing facility, modules won't be signed"
+        return
+    fi
+
+    sign_hash=$(grep "^CONFIG_MODULE_SIG_HASH=" "${kernel_config}" | cut -f2 -d= | sed 's/"//g')
+
     # Lazy source in signing related configuration
     read_framework_conf $dkms_framework_signing_variables
 
@@ -944,6 +948,7 @@ prepare_signing()
                     fi
                     echo "Certificate or key are missing, generating them using update-secureboot-policy..."
                     SHIM_NOTRIGGER=y update-secureboot-policy --new-key &>/dev/null
+                    update-secureboot-policy --enroll-key
                 fi
 
                 ;;
@@ -963,6 +968,10 @@ prepare_signing()
     # scripts/sign-file.c in kernel source also supports using "pkcs11:..." as private key
     if [[ "$mok_signing_key" != "pkcs11:"* ]] && ( [ ! -f "$mok_signing_key" ] || [ ! -f "$mok_certificate" ] ); then
         echo "Certificate or key are missing, generating self signed certificate for MOK..."
+        if ! command -v openssl >/dev/null; then
+            echo "openssl not found, can't generate key and certificate."
+            return
+        fi
         openssl req -new -x509 -nodes -days 36500 -subj "/CN=DKMS module signing key" \
             -newkey rsa:2048 -keyout "$mok_signing_key" \
             -outform DER -out "$mok_certificate" > /dev/null 2>&1
@@ -975,14 +984,6 @@ prepare_signing()
     if [ ! -f "${mok_certificate}" ]; then
         echo "Certificate file ${mok_certificate} not found and can't be generated, modules won't be signed"
         return
-    fi
-
-    if [[ -f "${kernel_config}" ]]; then
-        sign_hash="$(grep "^CONFIG_MODULE_SIG_HASH=" "${kernel_config}" | sed 's/CONFIG_MODULE_SIG_HASH=//;s/"//g')"
-        # The kernel may be built without module signing facility. CONFIG_MODULE_SIG_HASH is unset in kconfig
-        sign_hash="${sign_hash:-sha512}"
-    else
-        sign_hash="sha512"
     fi
 
     do_signing=1
@@ -1008,16 +1009,14 @@ prepare_build()
     read_conf_or_die "$kernelver" "$arch"
 
     # Error out if build_exclude is set
-    [[ $build_exclude ]] && die 9 \
-        $"The $base_dir/dkms.conf for module $module includes a BUILD_EXCLUSIVE directive which does not match this kernel/arch."\
+    [[ $build_exclude ]] && die 77 \
+        $"The $base_dir/dkms.conf for module $module includes a BUILD_EXCLUSIVE directive which does not match this kernel/arch/config."\
         $"This indicates that it should not be built."
 
     # Error out if source_tree is basically empty (binary-only dkms tarball w/ --force check)
     (($(ls $source_dir | wc -l | awk {'print $1'}) < 2)) && die 8 \
         $"The directory $source_dir does not appear to have module source located within it."\
         $"Build halted."
-
-    prepare_kernel "$kernelver" "$arch"
 
     # Set up temporary build directory for build
     rm -rf "$build_dir"
@@ -1036,10 +1035,33 @@ prepare_build()
             $"Check $build_dir for more information."
     done
 
-    if [[ -e $kernel_source_dir/.config ]]; then
-        cc=$(sed -n 's|^CONFIG_CC_VERSION_TEXT="\([^ ]*\) .*"|\1|p' $kernel_source_dir/.config)
+    if [ -f "$kernel_source_dir/.kernelvariables" ]; then
+        export CC=$(echo -e "show-%:\n\t@echo \$(\$*)\ninclude $kernel_source_dir/.kernelvariables" | make -f - show-CC)
+    else
+        unset CC
+    fi
+
+    if [[ -e "${kernel_config}" ]]; then
+        local cc=$(sed -n 's|^CONFIG_CC_VERSION_TEXT="\([^ ]*\) .*"|\1|p' "${kernel_config}")
         if command -v "$cc" >/dev/null; then
             export CC="$cc"
+            export KERNEL_CC="$cc"
+        fi
+
+        if grep -q 'CONFIG_CC_IS_CLANG=y' "${kernel_config}"; then
+            local cc=clang
+            if command -v "$cc" >/dev/null; then
+                export CC="$cc"
+                export KERNEL_CC="$cc"
+            fi
+        fi
+
+        if grep -q 'CONFIG_LD_IS_LLD=y' "${kernel_config}"; then
+            local ld=ld.lld
+            if command -v "$ld" >/dev/null; then
+                export LD="$ld"
+                export KERNEL_LD="$ld"
+            fi
         fi
     fi
 
@@ -1057,12 +1079,6 @@ actual_build()
 
     echo $""
     echo $"Building module:"
-
-    if [ -f "$kernel_source_dir/.kernelvariables" ]; then
-        export CC=$(echo -e "show-%:\n\t@echo \$(\$*)\ninclude $kernel_source_dir/.kernelvariables" | make -f - show-CC)
-    else
-        unset CC
-    fi
 
     invoke_command "$clean" "Cleaning build area" background
     echo $"DKMS make.log for $module-$module_version for kernel $kernelver ($arch)" >> "$build_log"
@@ -1098,7 +1114,7 @@ actual_build()
 
         [[ ${strip[$count]} != no ]] && strip -g "$built_module"
 
-        if [ -n "${do_signing}" ]; then
+        if (( do_signing )); then
             echo "Signing module $built_module"
             "$sign_file" "$sign_hash" "$mok_signing_key" "$mok_certificate" "$built_module"
         fi
@@ -1136,6 +1152,7 @@ clean_build()
 do_build()
 {
     set_kernel_source_dir_and_kconfig "$kernelver"
+    prepare_kernel "$kernelver" "$arch"
     prepare_signing
     prepare_build
     actual_build
@@ -1301,7 +1318,7 @@ do_install()
 
     done
 
-    if [[ ! "${any_module_installed}" ]]; then
+    if ((${#built_module_name[@]} > 0)) && [[ ! "${any_module_installed}" ]]; then
         die 6 $"Installation aborted."
     fi
 
@@ -1329,7 +1346,7 @@ do_install()
 
     if [[ $modprobe_on_install ]]; then
         # Make the newly installed modules available immediately
-        find /sys/devices -name modalias -print0 | xargs -0 cat | xargs modprobe -a -b -q
+        find /sys/devices -name modalias -print0 | xargs -0 cat | sort -u | xargs modprobe -a -b -q
         if [ -f /lib/systemd/system/systemd-modules-load.service ]; then
             systemctl restart systemd-modules-load.service
         fi
@@ -1927,7 +1944,7 @@ load_tarball()
     trap "rm -rf $temp_dir_name" EXIT
     tar -xaf $archive_location -C $temp_dir_name
 
-    if [[ ! $temp_dir_name/dkms_main_tree ]]; then
+    if [[ ! -d $temp_dir_name/dkms_main_tree ]]; then
     # Tarball was not generated from mktarball.
     # Just find the dkms.conf file and load the source.
     conf=$(find $temp_dir_name/ -name dkms.conf 2>/dev/null | head -n 1)
@@ -2168,30 +2185,33 @@ add_source_tree() {
 # functionality, and makes it much easier to reinstall DKMS kernel modules
 # by hand if dkms_autoinstaller is not used.
 autoinstall() {
-    local status mv mvka m v k a last_v last_m tenative
-    local install_count next_depends
+    local status mv mvka m v k a
+    local progress next_depends
     local -a to_install=()
     local -a next_install=()
+    local -a known_modules=()
     local -a installed_modules=()
+    local -a skipped_modules=()
     local -a failed_modules=()
     local -A build_depends=()
+    local -A latest=()
 
     # Walk through our list of installed and built modules, and create
-    # a list of modules that need to be reinstalled.
-    # Assuming all versions of same module to be parsed sequentially.
+    # a list of modules and their latest version.
     while read status mvka; do
         IFS='/' read m v k a <<< "$mvka"
-        [[ ! $last_m ]] && last_m="$m"
-        # autoinstall previous module's latest version after its deps.
-        if [[ $last_m != $m ]]; then
-            if [[ $tenative ]]; then
-                to_install[${#to_install[@]}]="$tenative"
-                build_depends["$last_m"]="${BUILD_DEPENDS[@]}"
-            fi
-            last_m="$m"
-            last_v='0'
-            tenative=''
+        if [[ -z "${latest["$m"]}" ]]; then
+            known_modules[${#known_modules[@]}]="$m"
+            latest["$m"]="$v"
+        elif [[ ("$(VER "$v")" > "$(VER "${latest["$m"]}")") ]]; then
+            latest["$m"]="$v"
         fi
+    done < <(module_status)
+
+    # Walk through our list of known modules, and create
+    # a list of modules that need to be reinstalled.
+    for m in "${known_modules[@]}"; do
+        v="${latest["$m"]}"
         # If the module is already installed or weak-installed, skip it.
         if _is_module_installed "$m" "$v" "$kernelver" "$arch"; then
             installed_modules[${#installed_modules[@]}]="$m"
@@ -2201,36 +2221,27 @@ autoinstall() {
             installed_modules[${#installed_modules[@]}]="$m"
             continue
         fi
-        # if the module does not want to be autoinstalled, skip it.
-        read_conf_or_die "$k" "$a" "$dkms_tree/$m/$v/source/dkms.conf"
+        # If the module does not want to be autoinstalled, skip it.
+        read_conf_or_die "$kernelver" "$arch" "$dkms_tree/$m/$v/source/dkms.conf"
         if [[ ! $AUTOINSTALL ]]; then
             continue
         fi
-        # otherwise, only autoinstall the latest version we have hanging around.
-        if [[ ($(VER $v) > $(VER $last_v)) ]]; then
-            last_v="$v"
-            tenative="$m/$v"
-        fi
-    done < <(module_status)
-
-    # We may have exited the loop with $tenative set.  If it is,
-    # it contains something that should be updated.
-    if [[ $tenative ]]; then
-        to_install[${#to_install[@]}]="$tenative"
+        # Otherwise, autoinstall the latest version we have hanging around.
+        to_install[${#to_install[@]}]="$m/$v"
         build_depends["$m"]="${BUILD_DEPENDS[@]}"
-    fi
+    done
 
     [[ $to_install ]] || return 0
 
     while true; do
-        install_count=0
+        progress=0
         next_install=( )
 
         # Step 1: Remove installed modules from all dependency lists.
         for m in ${!build_depends[@]}; do
             next_depends=
             for d in ${build_depends[$m]}; do
-                for i in ${installed_modules[@]}; do
+                for i in ${installed_modules[@]} ${skipped_modules[@]}; do
                     [[ "$d" = "$i" ]] && continue 2
                 done
                 next_depends+="$d "
@@ -2242,11 +2253,16 @@ autoinstall() {
         for mv in "${to_install[@]}"; do
             IFS=/ read m v <<< "$mv"
             if [[ -z "${build_depends[$m]}" ]]; then
-                if (module="$m" module_version="$v" kernelver="$kernelver" arch="$arch" install_module); then
+                (module="$m" module_version="$v" kernelver="$kernelver" arch="$arch" install_module)
+                status=$?
+                if [ "$status" = 0 ]; then
                     installed_modules[${#installed_modules[@]}]="$m"
-                    install_count=$(($install_count +1))
+                    progress=$(($progress +1))
+                elif [ "$status" = 77 ]; then
+                    skipped_modules[${#skipped_modules[@]}]="$m"
+                    progress=$(($progress +1))
                 else
-                    failed_modules=[${#failed_modules[@]}]="$m"
+                    failed_modules[${#failed_modules[@]}]="$m($status)"
                 fi
             else
                 next_install[${#next_install[@]}]="$mv"
@@ -2261,15 +2277,28 @@ autoinstall() {
 
         # Step 4: Keep going if at least one module was installed during
         # this iteration.
-        [[ "$install_count" -gt 0 ]] || break;
+        [[ "$progress" -gt 0 ]] || break;
 
     done
+
+    if [[ "${#installed_modules[@]}" -gt 0 ]]; then
+        echo "dkms autoinstall on $kernelver/$arch succeeded for ${installed_modules[@]}"
+    fi
+
+    if [[ "${#skipped_modules[@]}" -gt 0 ]]; then
+        echo "dkms autoinstall on $kernelver/$arch was skipped for ${skipped_modules[@]}"
+    fi
+
+    if [[ "${#failed_modules[@]}" -gt 0 ]]; then
+        echo "dkms autoinstall on $kernelver/$arch failed for ${failed_modules[@]}"
+    fi
+
     for mv in "${to_install[@]}"; do
         IFS=/ read m v <<< "$mv"
         echo "$m/$v autoinstall failed due to missing dependencies: ${build_depends[$m]}"
     done
 
-    if [[ "${#failed_modules[@]}" > 0 || "${#to_install[@]}" > 0 ]]; then
+    if [[ "${#failed_modules[@]}" -gt 0 || "${#to_install[@]}" -gt 0 ]]; then
         die 11 $"One or more modules failed to install during autoinstall." \
             $"Refer to previous errors for more information."
     fi
@@ -2281,9 +2310,6 @@ autoinstall() {
 ####                     ####
 #############################
 
-# Set a standard path
-PATH="$PATH:/usr/lib/dkms"
-
 # Ensure files and directories we create are readable to anyone,
 # since we aim to build as a non-root user
 umask 022
@@ -2294,6 +2320,7 @@ unset CC CXX CFLAGS CXXFLAGS LDFLAGS
 # Set important variables
 current_kernel=$(uname -r)
 current_os=$(uname -s)
+running_distribution=$(distro_version)
 dkms_tree="/var/lib/dkms"
 source_tree="/usr/src"
 install_tree="/lib/modules"
@@ -2301,10 +2328,17 @@ tmp_location=${TMPDIR:-/tmp}
 verbose=""
 symlink_modules=""
 
+# Check that we can write temporary files
+tmpfile=$(mktemp_or_die)
+echo "Hello, DKMS!" > "$tmpfile"
+if [ "$(cat "$tmpfile")" != "Hello, DKMS!" ]; then
+    warn $"dkms will not function properly without some free space in \$TMPDIR ($tmp_location)."
+fi
+rm -f "$tmpfile"
+
 # These can come from the environment or the config file
 [[ ! ${ADDON_MODULES_DIR} && -e /etc/sysconfig/module-init-tools ]] && . /etc/sysconfig/module-init-tools
 addon_modules_dir="${ADDON_MODULES_DIR}"
-[[ ! ${addon_modules_dir} ]] && running_distribution="$(distro_version)"
 weak_modules="${WEAK_MODULES_BIN}"
 
 # Source in configuration not related to signing
@@ -2473,6 +2507,12 @@ while (($# > 0)); do
 done
 
 # Sanity checking
+
+# The <(cmd) idiom does not work if /proc is not mounted
+read line < <(echo "Hello, DKMS!")
+if [ "$line" != "Hello, DKMS!" ]; then
+    warn $"dkms will not function properly if /proc is not mounted."
+fi
 
 # Error out if binaries-only is set and source-only is set
 if [[ $binaries_only && $source_only ]]; then

@@ -1,0 +1,28 @@
+From 98df2ebabc6e72dbbf18be391a5e47400bb4487c Mon Sep 17 00:00:00 2001
+From: Mart Frauenlob <AllKind@fastest.cc>
+Date: Mon, 4 Dec 2023 14:03:28 +0100
+Subject: [PATCH 18/19] man: Document the --force-version-override option
+
+Signed-off-by: Mart Frauenlob <AllKind@fastest.cc>
+---
+ dkms.8.in | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/dkms.8.in b/dkms.8.in
+index fa2b498..4908964 100644
+--- a/dkms.8.in
++++ b/dkms.8.in
+@@ -323,6 +323,10 @@ and
+ .B ldtarball
+ to force copying over of extant files.
+ .TP
++.B \-\-force\-version\-override
++This option skips the checks whether the version of the module, which is
++going to be installed, is newer than the already installed version.
++.TP
+ .B \-\-binaries\-only
+ This option can be used in conjunction with
+ .B mktarball
+-- 
+2.20.1
+

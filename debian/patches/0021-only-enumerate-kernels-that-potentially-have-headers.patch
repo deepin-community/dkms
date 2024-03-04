@@ -1,0 +1,31 @@
+From b2b705940c3b3e0a1666a7758066e36a6e367d07 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Fri, 24 Nov 2023 16:02:41 +0100
+Subject: [PATCH 21/26] only enumerate kernels that potentially have headers
+ installed
+
+avoid noise
+	Module build for kernel <KVER> was skipped since the
+	kernel headers for this kernel does not seem to be installed.
+on removed kernels that still have a nearly empty /lib/modules/<KVER>
+(w/o a build symlink) remaining
+---
+ dkms_common.postinst | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/dkms_common.postinst b/dkms_common.postinst
+index 52fb3a4..18459ff 100644
+--- a/dkms_common.postinst
++++ b/dkms_common.postinst
+@@ -127,7 +127,7 @@ if [ -r /etc/dkms/framework.conf ]; then
+     . /etc/dkms/framework.conf
+ fi
+ 
+-KERNELS=$(ls -v /lib/modules/ 2>/dev/null || true)
++KERNELS=$(ls -dv /lib/modules/*/build 2>/dev/null | cut -d/ -f4 || true)
+ CURRENT_KERNEL=$(uname -r)
+ 
+ #We never want to keep an older version side by side to prevent conflicts
+-- 
+2.20.1
+

@@ -1,0 +1,46 @@
+From 66d9ecef16eab02665e89253d816e180041cb34d Mon Sep 17 00:00:00 2001
+From: Emil Velikov <emil.velikov@collabora.com>
+Date: Mon, 29 Jan 2024 17:05:46 +0000
+Subject: [PATCH 49/54] dkms: use saner compression defaults
+
+Currently our compression options vary from those used in upstream
+kernel. As of 6.8-rc2 upstream uses (ignoring force/rm input file etc):
+
+ - gzip -9
+ - xz --check=crc32 --lzma2=dict=1MiB
+   Note: some older kernels lacked crc32 and/or used 2MiB
+ - zstd -T0 (aka -3)
+
+With the higher dictionary size (xz) and compression size (20+ zstd)
+more memory is required for decompression. Which may be a problem if the
+kernel itself is responsible for the decompression (instead of kmod),
+since it uses a smaller/limited ram amount.
+
+Reduce the numbers of be compatible with upstream.
+
+Closes: https://github.com/dell/dkms/issues/386
+
+Signed-off-by: Emil Velikov <emil.velikov@collabora.com>
+---
+ dkms.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/dkms.in b/dkms.in
+index 90cc485..d2397f0 100644
+--- a/dkms.in
++++ b/dkms.in
+@@ -1154,9 +1154,9 @@ actual_build()
+         if [ "$module_compressed_suffix" = ".gz" ]; then
+             gzip -9f "$built_module" || compressed_module=""
+         elif [ "$module_compressed_suffix" = ".xz" ]; then
+-            xz -f "$built_module" || compressed_module=""
++            xz --check=crc32 --lzma2=dict=1MiB -f "$built_module" || compressed_module=""
+         elif [ "$module_compressed_suffix" = ".zst" ]; then
+-            zstd -q -f -T0 -20 --ultra "$built_module" || compressed_module=""
++            zstd -q -f -T0 -19 "$built_module" || compressed_module=""
+         fi
+         if [ -n "$compressed_module" ]; then
+             cp -f "$compressed_module" "$base_dir/module/${dest_module_name[$count]}$module_suffix" >/dev/null
+-- 
+2.20.1
+
