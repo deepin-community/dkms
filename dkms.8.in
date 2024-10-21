@@ -37,7 +37,7 @@
 .  el \
 .    RB "[" "\\$1" "]"
 ..
-.TH DKMS 8 #RELEASE_DATE# #RELEASE_STRING#
+.TH DKMS 8 @RELEASE_DATE@ @RELEASE_STRING@
 .SH NAME
 dkms \- Dynamic Kernel Module Support
 .SH SYNOPSIS
@@ -231,11 +231,26 @@ Returns the current status of modules, versions and kernels within
 the tree as well as whether they have been added, built or installed.
 Status can be shown for just a certain module, a certain kernel,
 a module/version combination or a module/version/kernel combination.
+
+If the source directory, or the symbolic link 'source' pointing to it is missing,
+the status of the module/version combination will be displayed as 'broken'.
+In that case dkms will not perform any other action on that particular module/version combination.
+Manual intervention is required.
+If only the symbolic link 'source' is missing, the
+.B add
+action may be used to re-add the module/version combination to dkms.
 .SY autoinstall
 .YS
 .IP "" 4
 Attempt to install the latest revision of all modules that have been installed for other kernel revisions.
 dkms_autoinstaller is a stub that uses this action to perform its work.
+.SY generate_mok
+.YS
+.IP "" 4
+Command to be issued standalone to generate Secure Boot keys. Required only if prior manipulation of the keys is needed,
+otherwise the keys are automatically generated on the first build attempt of a DKMS module.
+
+No additional arguments are parsed.
 .SH OPTIONS
 .TP
 .B \-m <module>/<module\-version>
@@ -318,8 +333,14 @@ combinations on the other kernel.
 .TP
 .B \-\-force
 This option can be used in conjunction with
+.B build, install 
+and 
 .B ldtarball
-to force copying over of extant files.
+to force copying over existing files.
+.TP
+.B \-\-force\-version\-override
+This option skips the checks whether the version of the module, which is
+going to be installed, is newer than the already installed version.
 .TP
 .B \-\-binaries\-only
 This option can be used in conjunction with
@@ -360,7 +381,7 @@ This option executes modprobe on the modules upon successful installation.
 Using this option you can specify the location of your kernel source
 directory. Most likely you will not need to set this if your kernel
 source is accessible via
-.I /lib/modules/$kernel_version/build.
+.I @MODDIR@/$kernel_version/build.
 .TP
 .B \-\-directive <"cli\-directive=cli\-value">
 Using this option, you can specify additional directives from the command
@@ -400,17 +421,20 @@ jobs in parallel; see the -j option of
 Defaults to the number of CPUs in the system, detected by
 .I nproc(1).
 Specify 0 to impose no limit on the number of parallel jobs.
+.TP
+.B \-\-verbose
+Enable verbose output of external commands executed in DKMS.
 .SH ORIGINAL MODULES
 During the first install of a module for a <kernelversion>,
 .B dkms
 will search
-.I /lib/modules/<kernelversion>
+.I @MODDIR@/<kernelversion>
 for a pre-existing module of the same name. If one is found, it will automatically
 be saved as an "original_module" so that if the newer module is later removed,
 .B dkms
 will put the original module back in its place. Currently, DKMS searches
 for these original modules with first preference going to modules located in
-.I /lib/modules/<kernelversion>/updates/
+.I @MODDIR@/<kernelversion>/updates/
 followed by
 .B $DEST_MODULE_LOCATION
 (as specified in
@@ -509,7 +533,7 @@ This directive specifies the destination where a module should be installed to, 
 is used for finding original_modules. This is a
 .B required
 directive, except as noted below. This directive must start with the text "/kernel" which is in reference to
-/lib/modules/<kernelversion>/kernel.
+@MODDIR@/<kernelversion>/kernel.
 Note that for each module within a dkms package, the numeric value of
 .B #
 must be the same for each of BUILT_MODULE_NAME, BUILT_MODULE_LOCATION, DEST_MODULE_NAME and
@@ -727,12 +751,12 @@ values.
 This variable can be used within a directive definition and during use, the actual kernel
 version in question will be substituted in its place. This is especially useful in MAKE
 commands when specifying which INCLUDE statements should be used when compiling your
-module (eg. MAKE="make all INCLUDEDIR=/lib/modules/${kernelver}/build/include").
+module (eg. MAKE="make all INCLUDEDIR=@MODDIR@/${kernelver}/build/include").
 .TP
 .B $kernel_source_dir
 This variable holds the value of the location of your kernel source directory. Usually, this
 will be
-.IR /lib/modules/$kernelver/build ,
+.IR @MODDIR@/$kernelver/build ,
 unless otherwise specified with the
 .B \-\-kernelsourcedir
 option.
@@ -765,10 +789,10 @@ Additionally to /etc/dkms/framework.conf,
 Control which folders DKMS uses for components and artifacts.
 .TP
 .B $verbose
-Can be set to anything but a null value to enable verbose output in DKMS.
+Can be set to anything but a null value to enable verbose output of external commands executed in DKMS.
 .TP
 .B $symlink_modules
-Controls whether binary modules are copied to /lib/modules or if only symlinks are created there. Note that these variables can also
+Controls whether binary modules are copied to @MODDIR@ or if only symlinks are created there. Note that these variables can also
 be manipulated on the command line with \-\-dkmstree, \-\-sourcetree, \-\-installtree
 and \-\-symlink-modules options.
 .TP
@@ -787,11 +811,18 @@ can be used in path to represent the target kernel version. The path for the bin
 Location of the key and certificate files used for Secure boot. The variable
 .B $kernelver
 can be used in path to represent the target kernel version.
+
+NOTE: If any of the files specified by $mok_signing_key and
+$mok_certificate are non-existant, dkms will re-create both files.
+
 .I mok_signing_key
 can also be a "pkcs11:..." string for PKCS#11 engine, as long as the sign_file program supports it.
 .TP
 .B $modprobe_on_install
 Automatically load the built modules upon successful installation.
+.TP
+.B $parallel_jobs
+Run no more than this number of jobs in parallel.
 .SH dkms_autoinstaller
 This boot\-time service automatically installs any module which has
 .B AUTOINSTALL="yes"

@@ -1,0 +1,151 @@
+From cf6973e4e09fea041df3832300861d4ecd4c8760 Mon Sep 17 00:00:00 2001
+From: Simone Caronni <negativo17@gmail.com>
+Date: Sat, 5 Oct 2024 17:14:06 +0200
+Subject: [PATCH 2/2] Drop GNU/kFreeBSD
+
+---
+ dkms.in                   | 16 ++--------------
+ dkms_autoinstaller.in     | 11 ++---------
+ dkms_common.postinst.in   | 11 ++---------
+ kernel_postinst.d_dkms.in | 23 ++++-------------------
+ 4 files changed, 10 insertions(+), 51 deletions(-)
+
+diff --git a/dkms.in b/dkms.in
+index 1cd55b1..a8f2c6a 100644
+--- a/dkms.in
++++ b/dkms.in
+@@ -55,10 +55,7 @@ readonly mv_re='^([^/]*)/(.*)$'
+ _get_kernel_dir() {
+     if [[ -z $ksourcedir_fromcli ]]; then
+         KVER=$1
+-        case ${current_os} in
+-           Linux)          DIR="$install_tree/$KVER/build" ;;
+-           GNU/kFreeBSD)   DIR="/usr/src/kfreebsd-headers-$KVER/sys" ;;
+-        esac
++        DIR="$install_tree/$KVER/build"
+         echo $DIR
+     else
+         echo $kernel_source_dir
+@@ -67,11 +64,7 @@ _get_kernel_dir() {
+ 
+ _check_kernel_dir() {
+     DIR=$(_get_kernel_dir $1)
+-    case ${current_os} in
+-       Linux)          test -e $DIR/include ;;
+-       GNU/kFreeBSD)   test -e $DIR/kern && test -e $DIR/conf/kmod.mk ;;
+-       *)              return 1 ;;
+-    esac
++    test -e $DIR/include
+     return $?
+ }
+ 
+@@ -406,11 +399,6 @@ override_dest_module_location()
+     local orig_location="$1"
+     [[ ${addon_modules_dir} ]] && echo "/${addon_modules_dir}" && return
+ 
+-    if [[ $current_os = GNU/kFreeBSD ]] ; then
+-        # Does not support subdirs, regardless of distribution
+-        echo "" && return
+-    fi
+-
+     case "$running_distribution" in
+     fedora* | rhel* | ovm*)
+         echo "/extra" && return
+diff --git a/dkms_autoinstaller.in b/dkms_autoinstaller.in
+index 358e3d1..eee0352 100755
+--- a/dkms_autoinstaller.in
++++ b/dkms_autoinstaller.in
+@@ -34,20 +34,13 @@ uname_s=$(uname -s)
+ 
+ _get_kernel_dir() {
+     KVER=$1
+-    case ${uname_s} in
+-	Linux)		DIR="@MODDIR@/$KVER/build" ;;
+-	GNU/kFreeBSD)	DIR="/usr/src/kfreebsd-headers-$KVER/sys" ;;
+-    esac
++    DIR="@MODDIR@/$KVER/build"
+     echo $DIR
+ }
+ 
+ _check_kernel_dir() {
+     DIR=$(_get_kernel_dir $1)
+-    case ${uname_s} in
+-	Linux)		test -e $DIR/include ;;
+-	GNU/kFreeBSD)	test -e $DIR/kern && test -e $DIR/conf/kmod.mk ;;
+-	*)		return 1 ;;
+-    esac
++    test -e $DIR/include
+     return $?
+ }
+ 
+diff --git a/dkms_common.postinst.in b/dkms_common.postinst.in
+index fe5d037..2c54058 100644
+--- a/dkms_common.postinst.in
++++ b/dkms_common.postinst.in
+@@ -10,20 +10,13 @@ uname_s=$(uname -s)
+ 
+ _get_kernel_dir() {
+     KVER=$1
+-    case ${uname_s} in
+-	Linux)		DIR="@MODDIR@/$KVER/build" ;;
+-	GNU/kFreeBSD)	DIR="/usr/src/kfreebsd-headers-$KVER/sys" ;;
+-    esac
++    DIR="@MODDIR@/$KVER/build"
+     echo $DIR
+ }
+ 
+ _check_kernel_dir() {
+     DIR=$(_get_kernel_dir $1)
+-    case ${uname_s} in
+-	Linux)		test -e $DIR/include ;;
+-	GNU/kFreeBSD)	test -e $DIR/kern && test -e $DIR/conf/kmod.mk ;;
+-	*)		return 1 ;;
+-    esac
++    test -e $DIR/include
+     return $?
+ }
+ 
+diff --git a/kernel_postinst.d_dkms.in b/kernel_postinst.d_dkms.in
+index f4ccc95..d73fcb7 100755
+--- a/kernel_postinst.d_dkms.in
++++ b/kernel_postinst.d_dkms.in
+@@ -7,32 +7,17 @@ uname_s=$(uname -s)
+ 
+ _get_kernel_dir() {
+     KVER=$1
+-    case ${uname_s} in
+-       Linux)          DIR="@MODDIR@/$KVER/build" ;;
+-       GNU/kFreeBSD)   DIR="/usr/src/kfreebsd-headers-$KVER/sys" ;;
+-    esac
++    DIR="@MODDIR@/$KVER/build"
+     echo "$DIR"
+ }
+ 
+ _check_kernel_dir() {
+     DIR=$(_get_kernel_dir "$1")
+-    case ${uname_s} in
+-       Linux)          test -e "$DIR/include" ;;
+-       GNU/kFreeBSD)   test -e "$DIR/kern" && test -e "$DIR/conf/kmod.mk" ;;
+-       *)              false ;;
+-    esac
++    test -e "$DIR/include"
+ }
+ 
+-case "${uname_s}" in
+-    Linux)
+-        header_pkg="linux-headers-$inst_kern"
+-        kernel="Linux"
+-    ;;
+-    GNU/kFreeBSD)
+-        header_pkg="kfreebsd-headers-$inst_kern"
+-        kernel="kFreeBSD"
+-    ;;
+-esac
++header_pkg="linux-headers-$inst_kern"
++kernel="Linux"
+ 
+ if [ -x @LIBDIR@/dkms_autoinstaller ]; then
+     exec @LIBDIR@/dkms_autoinstaller start "$inst_kern"
+-- 
+2.39.5
+

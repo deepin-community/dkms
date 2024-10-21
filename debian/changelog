@@ -1,3 +1,20 @@
+dkms (3.1.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Refresh patches.
+  * Bump Standards-Version to 4.7.0, no changes needed.
+
+ -- Andreas Beckmann <anbe@debian.org>  Fri, 18 Oct 2024 03:45:43 +0200
+
+dkms (3.0.13-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Refresh patches.
+  * Downgrade compiler dependency to Recommends to ease cross installation.
+    The linux-headers-* packages have a proper compiler dependency.
+
+ -- Andreas Beckmann <anbe@debian.org>  Thu, 07 Mar 2024 11:33:57 +0100
+
 dkms (3.0.12-5) unstable; urgency=medium
 
   * dkms: Use saner compression defaults.  (Closes: #1061427)
