@@ -1,0 +1,51 @@
+From 8521870c3c0b97f3d0648648e9e199f9e1d0fbad Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Fri, 18 Oct 2024 02:23:02 +0200
+Subject: [PATCH] add --help / -h options
+
+---
+ dkms.8.in | 3 +++
+ dkms.in   | 6 +++++-
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/dkms.8.in b/dkms.8.in
+index 634c697..30e28e7 100644
+--- a/dkms.8.in
++++ b/dkms.8.in
+@@ -292,6 +292,9 @@ Quiet.
+ .B \-V, \-\-version
+ Prints the currently installed version of dkms and exits.
+ .TP
++.B \-h, \-\-help
++Prints a short usage message and exits.
++.TP
+ .B \-c <dkms.conf\-location>
+ The location of the
+ .I dkms.conf
+diff --git a/dkms.in b/dkms.in
+index 2815b53..93a080f 100644
+--- a/dkms.in
++++ b/dkms.in
+@@ -190,7 +190,7 @@ show_usage()
+     echo "              [--kernelsourcedir=source-location] [--rpm_safe_upgrade]"
+     echo "              [--dkmstree path] [--sourcetree path] [--installtree path]"
+     echo "              [--binaries-only] [--source-only] [--verbose]"
+-    echo "              [--no-depmod] [--modprobe-on-install] [-j number] [--version]"
++    echo "              [--no-depmod] [--modprobe-on-install] [-j number] [--version] [--help]"
+ }
+ 
+ VER()
+@@ -2532,6 +2532,10 @@ while (($# > 0)); do
+         -j)
+             read_arg parallel_jobs "$1" "$2" || shift
+             ;;
++        --help|-h)
++            show_usage
++            exit 0
++            ;;
+         -*)
+             error " Unknown option: $1"
+             show_usage
+-- 
+2.39.5
+

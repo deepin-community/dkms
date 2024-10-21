@@ -1,0 +1,24 @@
+From 4bc1a61cc942fe2d54462f2afc121064c11dd781 Mon Sep 17 00:00:00 2001
+From: Andreas Beckmann <anbe@debian.org>
+Date: Fri, 18 Oct 2024 02:14:25 +0200
+Subject: [PATCH] initially clear variables that can contain cleanup code
+
+---
+ dkms.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/dkms.in b/dkms.in
+index 371290a..2815b53 100644
+--- a/dkms.in
++++ b/dkms.in
+@@ -81,6 +81,7 @@ on_exit()
+     exit $exitcode_on_exit
+ }
+ 
++unset make_tarball_rm_temp_dir_name load_tarball_rm_temp_dir_name
+ trap on_exit EXIT
+ 
+ # Run a command that we may or may not want to be detailed about.
+-- 
+2.39.5
+

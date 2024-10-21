@@ -1,8 +1,8 @@
 --- a/kernel_postinst.d_dkms.in
 +++ b/kernel_postinst.d_dkms.in
-@@ -34,6 +34,19 @@ case "${uname_s}" in
-     ;;
- esac
+@@ -19,6 +19,19 @@ _check_kernel_dir() {
+ header_pkg="linux-headers-$inst_kern"
+ kernel="Linux"
  
 +case $0 in *header_postinst.d*)
 +    # unbuild all autoinstalled modules for this kernel to ensure they get

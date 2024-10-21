@@ -1,7 +1,7 @@
-RELEASE_DATE := "24 September 2023"
+RELEASE_DATE := "1 October 2024"
 RELEASE_MAJOR := 3
-RELEASE_MINOR := 0
-RELEASE_MICRO := 12
+RELEASE_MINOR := 1
+RELEASE_MICRO := 0
 RELEASE_NAME := dkms
 RELEASE_VERSION := $(RELEASE_MAJOR).$(RELEASE_MINOR).$(RELEASE_MICRO)
 RELEASE_STRING := $(RELEASE_NAME)-$(RELEASE_VERSION)
@@ -9,40 +9,52 @@ SHELL=bash
 
 SBIN = /usr/sbin
 LIBDIR = /usr/lib/dkms
+MODDIR = /lib/modules
 KCONF = /etc/kernel
+KINSTALL = /usr/lib/kernel/install.d
 SYSTEMD = /usr/lib/systemd/system
 
 #Define the top-level build directory
 BUILDDIR := $(shell pwd)
 
-all: dkms dkms.8 dkms_autoinstaller dkms.service kernel_install.d_dkms kernel_postinst.d_dkms
+SED			?= sed
+SED_SUBSTITUTIONS	 = \
+	-e 's,@RELEASE_STRING@,$(RELEASE_STRING),g' \
+	-e 's,@RELEASE_DATE@,$(RELEASE_DATE),g' \
+	-e 's,@SBINDIR@,$(SBIN),g' \
+	-e 's,@KCONFDIR@,$(KCONF),g' \
+	-e 's,@MODDIR@,$(MODDIR),g' \
+	-e 's,@LIBDIR@,$(LIBDIR),g'
+
+%: %.in
+	$(SED) $(SED_SUBSTITUTIONS) $< > $@
+
+all: \
+	dkms \
+	dkms.8 \
+	dkms_autoinstaller \
+	dkms.bash-completion \
+	dkms.zsh-completion \
+	dkms_common.postinst \
+	dkms_framework.conf \
+	dkms.service \
+	kernel_install.d_dkms \
+	kernel_postinst.d_dkms \
+	kernel_prerm.d_dkms
 
 clean:
 	-rm -rf dist/
 	-rm -rf dkms
 	-rm -rf dkms.8
 	-rm -rf dkms_autoinstaller
+	-rm -rf dkms.bash-completion
+	-rm -rf dkms.zsh-completion
+	-rm -rf dkms_common.postinst
+	-rm -rf dkms_framework.conf
 	-rm -rf dkms.service
 	-rm -rf kernel_install.d_dkms
 	-rm -rf kernel_postinst.d_dkms
-
-dkms: dkms.in
-	sed -e 's/#RELEASE_STRING#/$(RELEASE_STRING)/' $^ > $@
-
-dkms.8: dkms.8.in
-	sed -e 's/#RELEASE_STRING#/$(RELEASE_STRING)/' -e 's/#RELEASE_DATE#/$(RELEASE_DATE)/' $^ > $@
-
-dkms_autoinstaller: dkms_autoinstaller.in
-	sed -e 's,@SBINDIR@,$(SBIN),g' $^ > $@
-
-dkms.service: dkms.service.in
-	sed -e 's,@SBINDIR@,$(SBIN),g' $^ > $@
-
-kernel_install.d_dkms: kernel_install.d_dkms.in
-	sed -e 's,@KCONFDIR@,$(KCONF),g' $^ > $@
-
-kernel_postinst.d_dkms: kernel_postinst.d_dkms.in
-	sed -e 's,@LIBDIR@,$(LIBDIR),g' $^ > $@
+	-rm -rf kernel_prerm.d_dkms
 
 install: all
 	$(if $(strip $(VAR)),$(error Setting VAR is not supported))
@@ -60,8 +72,9 @@ endif
 	install -d -m 0755 $(DESTDIR)/etc/dkms/framework.conf.d
 	$(if $(strip $(BASHDIR)),$(error Setting BASHDIR is not supported))
 	install -D -m 0644 dkms.bash-completion $(DESTDIR)/usr/share/bash-completion/completions/dkms
+	install -D -m 0644 dkms.zsh-completion $(DESTDIR)/usr/share/zsh/site-functions/_dkms
 	install -D -m 0644 dkms.8 $(DESTDIR)/usr/share/man/man8/dkms.8
-	install -D -m 0755 kernel_install.d_dkms $(DESTDIR)$(KCONF)/install.d/40-dkms.install
+	install -D -m 0755 kernel_install.d_dkms $(DESTDIR)$(KINSTALL)/40-dkms.install
 	install -D -m 0755 kernel_postinst.d_dkms $(DESTDIR)$(KCONF)/postinst.d/dkms
 	install -D -m 0755 kernel_prerm.d_dkms $(DESTDIR)$(KCONF)/prerm.d/dkms
 

@@ -8,7 +8,7 @@ Uploaders: David Paleino <dapal@debian.org>,
  Mario Limonciello <Mario_Limonciello@dell.com>,
  Andreas Beckmann <anbe@debian.org>,
 Build-Depends: debhelper-compat (= 13)
-Standards-Version: 4.6.2
+Standards-Version: 4.7.0
 Homepage: https://github.com/dell/dkms
 Vcs-Git: https://salsa.debian.org/debian/dkms.git
 Vcs-Browser: https://salsa.debian.org/debian/dkms
@@ -20,12 +20,13 @@ Architecture: all
 Multi-Arch: foreign
 Pre-Depends: lsb-release
 Depends: ${misc:Depends},
- kmod | kldutils,
- gcc | c-compiler,
+ kmod,
  dpkg-dev,
  make | build-essential,
  patch,
-Recommends: fakeroot,
+Recommends:
+ gcc | c-compiler,
+ fakeroot,
  sudo,
 Suggests: menu, e2fsprogs
 Breaks:
