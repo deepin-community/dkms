@@ -4,11 +4,7 @@
 inst_kern=$1
 
 if command -v dkms > /dev/null; then
-	dkms status -k "$inst_kern" 2>/dev/null | while IFS= read -r line; do
-		name=$(echo "$line" | cut -d'/' -f1)
-		vers=$(echo "$line" | cut -d'/' -f2 | cut -d',' -f1)
-		arch=$(echo "$line" | awk -F', ' '{print $3}' | cut -d':' -f1)
-		status=$(echo "$line" | awk -F': ' '{print $2}' | awk '{print $1}')
+	dkms status -k "$inst_kern" 2>/dev/null | while IFS=",:/ " read -r name vers _ arch status; do
 		[ "$status" = "installed" ] || continue
 		echo "dkms: removing: $name $vers ($inst_kern) ($arch)" >&2
 		dkms remove -m "$name" -v "$vers" -k "$inst_kern" -a "$arch"
