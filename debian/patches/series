@@ -6,5 +6,6 @@
 1003-add-help-h-options.patch
 1004-common.postinst-source-etc-dkms-framework.conf.d-.co.patch
 2001-do-not-perform-rpm-queries-on-Debian-Ubuntu-Arch-bas.patch
+2002-fix-bug-when-dkms-status-original_module-exists.patch
 rebuild-modules-on-header-upgrade.patch
 only-autobuild-AUTOINSTALL-yes-modules.patch

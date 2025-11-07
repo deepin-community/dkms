@@ -1,0 +1,52 @@
+From 3d1eb96107b3c8a6e9fd42c3b27c729d1d62fe19 Mon Sep 17 00:00:00 2001
+From: shaoyang <shaoyang@uniontech.com>
+Date: Fri, 7 Nov 2025 15:04:38 +0800
+Subject: [PATCH] fix bug when dkms status, (original_module exists)
+
+Signed-off-by: shaoyang <shaoyang@uniontech.com>
+---
+ kernel_prerm.d_dkms    |  6 +++++-
+ kernel_prerm.d_dkms.in | 10 +++++++---
+ 2 files changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/kernel_prerm.d_dkms b/kernel_prerm.d_dkms
+index aeb8e3a..4ccc353 100755
+--- a/kernel_prerm.d_dkms
++++ b/kernel_prerm.d_dkms
+@@ -4,7 +4,11 @@
+ inst_kern=$1
+ 
+ if command -v dkms > /dev/null; then
+-	dkms status -k "$inst_kern" 2>/dev/null | while IFS=",:/ " read -r name vers _ arch status; do
++	dkms status -k "$inst_kern" 2>/dev/null | while IFS= read -r line; do
++		name=$(echo "$line" | cut -d'/' -f1)
++		vers=$(echo "$line" | cut -d'/' -f2 | cut -d',' -f1)
++		arch=$(echo "$line" | awk -F', ' '{print $3}' | cut -d':' -f1)
++		status=$(echo "$line" | awk -F': ' '{print $2}' | awk '{print $1}')
+ 		[ "$status" = "installed" ] || continue
+ 		echo "dkms: removing: $name $vers ($inst_kern) ($arch)" >&2
+ 		dkms remove -m "$name" -v "$vers" -k "$inst_kern" -a "$arch"
+diff --git a/kernel_prerm.d_dkms.in b/kernel_prerm.d_dkms.in
+index cbf0c94..c30f2aa 100755
+--- a/kernel_prerm.d_dkms.in
++++ b/kernel_prerm.d_dkms.in
+@@ -5,9 +5,13 @@
+ inst_kern=$1
+ 
+ if command -v dkms > /dev/null; then
+-	dkms status -k "$inst_kern" 2>/dev/null | while IFS=",:/ " read -r name vers _ arch status; do
+-		[ "$status" = "installed" ] || continue
+-		echo "dkms: removing: $name $vers ($inst_kern) ($arch)" >&2
++	dkms status -k "$inst_kern" 2>/dev/null | while IFS= read -r line; do
++                name=$(echo "$line" | cut -d'/' -f1)
++                vers=$(echo "$line" | cut -d'/' -f2 | cut -d',' -f1)
++                arch=$(echo "$line" | awk -F', ' '{print $3}' | cut -d':' -f1)
++                status=$(echo "$line" | awk -F': ' '{print $2}' | awk '{print $1}')
++                [ "$status" = "installed" ] || continue
++                echo "dkms: removing: $name $vers ($inst_kern) ($arch)" >&2
+ 		# Compromise on using 'unbuild' to remove the module when a
+ 		# kernel is being removed.  The 'remove' command is too
+ 		# destructive.  The 'uninstall' command leaves built files
+-- 
+2.20.1
+
