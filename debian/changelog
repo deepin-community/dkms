@@ -1,4 +1,4 @@
-dkms (3.1.0-2) unstable; urgency=medium
+dkms (3.1.0-1deepin1) unstable; urgency=medium
 
   * fix bug when dkms status (original_module exists)
 
